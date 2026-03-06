@@ -8769,6 +8769,79 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ListResponse'
+                            examples:
+                                list_retentions:
+                                    summary: 'List of retentions'
+                                    value:
+                                        data:
+                                            - id: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                              uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                              status: 'valid'
+                                              document_type: 'retenciones'
+                                              retention_key: '26'
+                                              folio_number: '1'
+                                              series: 'RET'
+                                              issuer:
+                                                  legal_name: 'MI EMPRESA SA DE CV'
+                                                  tax_id: 'MEE200101ABC'
+                                                  tax_system: '601'
+                                              receiver:
+                                                  legal_name: 'GRUPO JINIM'
+                                                  tax_id: 'GJI180508GM9'
+                                                  nationality: 'Nacional'
+                                              period:
+                                                  start: 1
+                                                  end: 1
+                                                  year: 2026
+                                              totals:
+                                                  total_operation: 93116.98
+                                                  total_taxable: 93116.98
+                                                  total_exempt: 0
+                                                  total_retained: 9777.27
+                                                  tax_retained:
+                                                      - tax: '001'
+                                                        base: 93116.98
+                                                        amount: 2327.92
+                                                        payment_type: '03'
+                                                      - tax: '002'
+                                                        base: 14898.71
+                                                        amount: 7449.35
+                                                        payment_type: '01'
+                                              stamp:
+                                                  uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                                  stamped_at: '2026-01-15T10:30:45'
+                                                  provider: 'prodigia'
+                                              livemode: true
+                                              created_at: 1736942445000
+                                            - id: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
+                                              uuid: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
+                                              status: 'valid'
+                                              document_type: 'retenciones'
+                                              retention_key: '01'
+                                              folio_number: '2'
+                                              series: 'RET'
+                                              receiver:
+                                                  legal_name: 'JUAN PEREZ GARCIA'
+                                                  tax_id: 'PEGJ800101ABC'
+                                                  nationality: 'Nacional'
+                                              period:
+                                                  start: 1
+                                                  end: 3
+                                                  year: 2026
+                                              totals:
+                                                  total_operation: 50000.00
+                                                  total_taxable: 50000.00
+                                                  total_exempt: 0
+                                                  total_retained: 5000.00
+                                                  tax_retained:
+                                                      - tax: '001'
+                                                        base: 50000.00
+                                                        amount: 5000.00
+                                                        payment_type: '03'
+                                              livemode: true
+                                              created_at: 1736510430000
+                                        has_more: false
+                                        total_count: 2
                 '401':
                     description: Unauthorized
                     content:
@@ -8783,17 +8856,14 @@ paths:
             description: |
                 Create and stamp a new tax retention document (CFDI Retenciones 2.0).
 
-                Supports two input formats:
-                - **Native format:** Uses `cveRetenc`, `periodo`, `totales` with `impRetenidos`
-                - **Simplified format:** Uses `retentionKey`, `period`, `totals` with `taxRetained`
-
-                The API auto-detects the format and normalizes internally.
-
-                **Features:**
-                - Automatic folio generation
-                - SAT stamping via configured PAC provider
-                - PDF and XML generation
-                - Complement support (PlataformasTecnológicas, Intereses, etc.)
+                The API accepts a **simplified format** — the backend handles:
+                - **Client lookup** by ID (fetches RFC, legal name, address automatically)
+                - **Nationality detection** from client's country
+                - **Tax code mapping** (`ISR` → 001, `IVA` → 002, `IEPS` → 003)
+                - **Payment type defaults** per tax (ISR → provisional, IVA/IEPS → definitivo)
+                - **Totals auto-calculation** (taxable = operation − exempt, retained = sum of taxes)
+                - **Folio auto-generation**
+                - SAT stamping, PDF and XML generation
 
                 **gigstack Connect:** Create retentions for other teams using the `team` parameter.
             security:
@@ -8807,129 +8877,371 @@ paths:
                         schema:
                             type: object
                             required:
-                                - receptor
-                                - periodo
-                                - totales
-                                - cveRetenc
+                                - retention_key
+                                - client
+                                - period_start
+                                - period_end
+                                - period_year
+                                - total_operation
+                                - taxes
                             properties:
-                                cveRetenc:
+                                retention_key:
                                     type: string
-                                    description: SAT retention type code (01-26)
+                                    description: SAT retention type code (01-26). E.g. "26" for Plataformas Tecnológicas
                                     example: '26'
-                                receptor:
+                                client:
                                     type: object
-                                    required:
-                                        - nacionalidadR
+                                    description: |
+                                        Client reference. Same format as invoices/payments. Three modes:
+                                        - **By ID:** `{ id: "client_123" }` — looks up existing client
+                                        - **By search:** `{ search: { on_key: "tax_id", on_value: "XAXX010101000", auto_create: true } }` — finds or creates
+                                        - **Inline:** `{ tax_id: "XAXX010101000", legal_name: "EMPRESA SA", address: { zip: "06700" } }` — creates on-the-fly
                                     properties:
-                                        nacionalidadR:
+                                        id:
                                             type: string
-                                            enum: [Nacional, Extranjero]
-                                        rfcR:
+                                            description: Existing client ID
+                                        search:
+                                            type: object
+                                            description: Search for client by field value
+                                            properties:
+                                                on_key:
+                                                    type: string
+                                                    description: Field to search on (e.g. "tax_id", "email", "rfc")
+                                                on_value:
+                                                    type: string
+                                                    description: Value to match
+                                                auto_create:
+                                                    type: boolean
+                                                    description: Create client if not found (default false)
+                                                safety_check:
+                                                    type: boolean
+                                                    description: Fail if multiple clients match (default false)
+                                        tax_id:
                                             type: string
-                                            description: Receptor RFC (for Nacional)
-                                            example: 'XAXX010101000'
-                                        nomDenRazSocR:
+                                            description: RFC / Tax ID (for inline creation)
+                                        legal_name:
                                             type: string
-                                            description: Receptor legal name (for Nacional)
-                                        domicilioFiscalR:
+                                            description: Legal name (for inline creation)
+                                        email:
                                             type: string
-                                            description: Receptor fiscal zip code (for Nacional)
-                                            example: '06700'
-                                periodo:
-                                    type: object
-                                    required:
-                                        - mesIni
-                                        - mesFin
-                                        - ejercicio
-                                    properties:
-                                        mesIni:
+                                        name:
                                             type: string
-                                            description: Start month (01-12)
-                                            example: '01'
-                                        mesFin:
+                                        address:
+                                            type: object
+                                            properties:
+                                                zip:
+                                                    type: string
+                                                country:
+                                                    type: string
+                                                street:
+                                                    type: string
+                                                state:
+                                                    type: string
+                                        tax_system:
                                             type: string
-                                            description: End month (01-12)
-                                            example: '01'
-                                        ejercicio:
-                                            type: string
-                                            description: Fiscal year
-                                            example: '2026'
-                                totales:
-                                    type: object
-                                    required:
-                                        - montoTotOperacion
-                                        - montoTotGrav
-                                        - montoTotExent
-                                        - montoTotRet
-                                    properties:
-                                        montoTotOperacion:
-                                            type: number
-                                            description: Total operation amount
-                                            example: 93116.98
-                                        montoTotGrav:
-                                            type: number
-                                            description: Total taxable amount
-                                            example: 93116.98
-                                        montoTotExent:
-                                            type: number
-                                            description: Total exempt amount
-                                            example: 0
-                                        montoTotRet:
-                                            type: number
-                                            description: Total retained amount
-                                            example: 9777.27
-                                        impRetenidos:
-                                            type: array
-                                            items:
-                                                type: object
-                                                properties:
-                                                    baseRet:
-                                                        type: number
-                                                        example: 93116.98
-                                                    impuestoRet:
-                                                        type: string
-                                                        description: 'Tax code: 001=ISR, 002=IVA, 003=IEPS'
-                                                        example: '001'
-                                                    montoRet:
-                                                        type: number
-                                                        example: 2327.92
-                                                    tipoPagoRet:
-                                                        type: string
-                                                        description: 'Payment type: 01=Definitivo, 03=Provisional'
-                                                        example: '03'
-                                complementType:
+                                            description: Tax system code (e.g. "601")
+                                period_start:
+                                    type: number
+                                    description: Start month (1-12)
+                                    example: 1
+                                period_end:
+                                    type: number
+                                    description: End month (1-12)
+                                    example: 3
+                                period_year:
+                                    type: number
+                                    description: Fiscal year
+                                    example: 2026
+                                total_operation:
+                                    type: number
+                                    description: Total operation amount. Taxable amount is auto-calculated as `total_operation - total_exempt`
+                                    example: 93116.98
+                                total_exempt:
+                                    type: number
+                                    nullable: true
+                                    description: Total exempt amount (defaults to 0)
+                                    example: 0
+                                taxes:
+                                    type: array
+                                    description: Retained taxes. Use friendly names (ISR, IVA, IEPS) — SAT codes are mapped automatically
+                                    items:
+                                        type: object
+                                        required:
+                                            - tax
+                                            - base
+                                            - amount
+                                        properties:
+                                            tax:
+                                                type: string
+                                                description: 'Tax name: ISR, IVA, or IEPS (mapped to SAT codes 001, 002, 003)'
+                                                example: 'ISR'
+                                            base:
+                                                type: number
+                                                description: Tax base amount
+                                                example: 93116.98
+                                            amount:
+                                                type: number
+                                                description: Retained amount
+                                                example: 2327.92
+                                            payment_type:
+                                                type: string
+                                                nullable: true
+                                                description: 'Override payment type (01=Definitivo, 03=Provisional). Defaults: ISR→03, IVA→01, IEPS→01'
+                                series:
                                     type: string
-                                    description: Complement type identifier
-                                complementData:
-                                    description: Complement-specific data (structure varies by complement type)
+                                    nullable: true
+                                    description: Series for folio management (defaults to "RET")
+                                metadata:
+                                    type: object
+                                    nullable: true
+                                    description: Custom metadata
                                 idempotency_key:
                                     type: string
+                                    nullable: true
                                     description: Unique key to prevent duplicate creation
-                        example:
-                            cveRetenc: '26'
-                            receptor:
-                                nacionalidadR: 'Nacional'
-                                rfcR: 'GJI180508GM9'
-                                nomDenRazSocR: 'GRUPO JINIM'
-                                domicilioFiscalR: '11590'
-                            periodo:
-                                mesIni: '01'
-                                mesFin: '01'
-                                ejercicio: '2026'
-                            totales:
-                                montoTotOperacion: 93116.98
-                                montoTotGrav: 93116.98
-                                montoTotExent: 0
-                                montoTotRet: 9777.27
-                                impRetenidos:
-                                    - baseRet: 93116.98
-                                      impuestoRet: '001'
-                                      montoRet: 2327.92
-                                      tipoPagoRet: '03'
-                                    - baseRet: 14898.71
-                                      impuestoRet: '002'
-                                      montoRet: 7449.35
-                                      tipoPagoRet: '01'
+                                retention_description:
+                                    type: string
+                                    nullable: true
+                                    description: 'Required only for key "25" (Otro tipo de retenciones). Free-text description of the retention type.'
+                                interest:
+                                    type: object
+                                    nullable: true
+                                    description: 'Required only for key "16" (Intereses). Financial interest complement data.'
+                                    properties:
+                                        financial_system:
+                                            type: string
+                                            description: 'Financial system flag (SI/NO)'
+                                            enum: ['SI', 'NO']
+                                        withdrawal_aores:
+                                            type: string
+                                            nullable: true
+                                            description: 'Retiro AORES flag (SI/NO)'
+                                            enum: ['SI', 'NO']
+                                        financial_derivatives:
+                                            type: string
+                                            nullable: true
+                                            description: 'Financial derivatives flag (SI/NO)'
+                                            enum: ['SI', 'NO']
+                                        nominal_interest:
+                                            type: number
+                                            description: Nominal interest amount (3 decimal places)
+                                        real_interest:
+                                            type: number
+                                            description: Real interest amount (3 decimal places)
+                                        loss:
+                                            type: number
+                                            nullable: true
+                                            description: Loss amount (3 decimal places)
+                                platform_services:
+                                    type: object
+                                    nullable: true
+                                    description: 'Required only for key "26" (Plataformas Tecnológicas). Service details for technology platform retentions. Header totals (IVA trasladado, ISR retenido, etc.) are auto-calculated.'
+                                    required:
+                                        - periodicity
+                                        - services
+                                    properties:
+                                        periodicity:
+                                            type: string
+                                            description: 'Reporting periodicity: 01=Diario, 02=Semanal, 03=Quincenal, 04=Mensual, 05=Bimestral'
+                                            example: '04'
+                                        services:
+                                            type: array
+                                            description: Individual service entries
+                                            items:
+                                                type: object
+                                                required:
+                                                    - payment_form
+                                                    - service_type
+                                                    - service_date
+                                                    - price_without_tax
+                                                properties:
+                                                    payment_form:
+                                                        type: string
+                                                        description: 'Payment form: 01=Efectivo, 02=Transferencia, 03=Tarjeta débito, 04=Tarjeta crédito, 05=Monedero electrónico'
+                                                        example: '02'
+                                                    service_type:
+                                                        type: string
+                                                        description: 'Service type: 01=Transporte terrestre, 02=Entrega alimentos, 03=Hospedaje, 04=Otros'
+                                                        example: '01'
+                                                    service_date:
+                                                        type: string
+                                                        description: Service date (YYYY-MM-DD)
+                                                        example: '2026-01-15'
+                                                    price_without_tax:
+                                                        type: number
+                                                        description: Service price without IVA
+                                                        example: 500.00
+                                                    tax_rate:
+                                                        type: number
+                                                        nullable: true
+                                                        description: IVA tax rate (defaults to 0.16 = 16%)
+                                                        example: 0.16
+                                                    commission:
+                                                        type: number
+                                                        nullable: true
+                                                        description: Platform commission amount
+                                                        example: 125.00
+                                                    government_contribution:
+                                                        type: number
+                                                        nullable: true
+                                                        description: Government contribution amount (if applicable)
+                        examples:
+                            plataformas_tecnologicas:
+                                summary: 'Plataformas Tecnológicas (key 26) — with services complement'
+                                description: 'Digital platform retention (Uber, Rappi, etc.). Requires platform_services with service details. Header totals are auto-calculated from services and taxes.'
+                                value:
+                                    retention_key: '26'
+                                    client:
+                                        id: 'abc123clientId'
+                                    period_start: 1
+                                    period_end: 1
+                                    period_year: 2026
+                                    total_operation: 93116.98
+                                    total_exempt: 0
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 93116.98
+                                          amount: 2327.92
+                                        - tax: 'IVA'
+                                          base: 14898.71
+                                          amount: 7449.35
+                                    platform_services:
+                                        periodicity: '04'
+                                        services:
+                                            - payment_form: '02'
+                                              service_type: '01'
+                                              service_date: '2026-01-10'
+                                              price_without_tax: 46558.49
+                                              tax_rate: 0.16
+                                              commission: 11639.62
+                                            - payment_form: '02'
+                                              service_type: '01'
+                                              service_date: '2026-01-20'
+                                              price_without_tax: 46558.49
+                                              tax_rate: 0.16
+                                              commission: 11639.62
+                            intereses:
+                                summary: 'Intereses (key 16) — with interest complement'
+                                description: 'Interest income retention. Requires the interest object with financial system details.'
+                                value:
+                                    retention_key: '16'
+                                    client:
+                                        search:
+                                            on_key: 'tax_id'
+                                            on_value: 'BNK200101ABC'
+                                            auto_create: false
+                                    period_start: 1
+                                    period_end: 12
+                                    period_year: 2026
+                                    total_operation: 150000.00
+                                    total_exempt: 0
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 150000.00
+                                          amount: 3000.00
+                                    interest:
+                                        financial_system: 'SI'
+                                        withdrawal_aores: 'NO'
+                                        financial_derivatives: 'NO'
+                                        nominal_interest: 8500.500
+                                        real_interest: 5200.300
+                                        loss: 0.000
+                            honorarios_profesionales:
+                                summary: 'Honorarios profesionales (key 01) — ISR only'
+                                description: 'Professional fees retention. Only ISR is withheld (typically 10% of the gross amount).'
+                                value:
+                                    retention_key: '01'
+                                    client:
+                                        id: 'client_professional_abc'
+                                    period_start: 1
+                                    period_end: 3
+                                    period_year: 2026
+                                    total_operation: 50000.00
+                                    total_exempt: 0
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 50000.00
+                                          amount: 5000.00
+                            arrendamiento:
+                                summary: 'Arrendamiento (key 02) — ISR + IVA'
+                                description: 'Rental income retention. ISR (10%) and IVA (2/3 of IVA) are withheld.'
+                                value:
+                                    retention_key: '02'
+                                    client:
+                                        id: 'client_landlord_xyz'
+                                    period_start: 1
+                                    period_end: 1
+                                    period_year: 2026
+                                    total_operation: 30000.00
+                                    total_exempt: 0
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 30000.00
+                                          amount: 3000.00
+                                        - tax: 'IVA'
+                                          base: 4800.00
+                                          amount: 3200.00
+                            with_exempt_and_metadata:
+                                summary: 'With exempt amount, series, and metadata'
+                                description: 'Full example with all optional fields. Taxable amount is auto-calculated as total_operation minus total_exempt.'
+                                value:
+                                    retention_key: '14'
+                                    client:
+                                        tax_id: 'EMP200101ABC'
+                                        legal_name: 'EMPRESA EJEMPLO SA DE CV'
+                                        address:
+                                            zip: '06700'
+                                            country: 'MEX'
+                                    period_start: 1
+                                    period_end: 6
+                                    period_year: 2026
+                                    total_operation: 100000.00
+                                    total_exempt: 20000.00
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 80000.00
+                                          amount: 8000.00
+                                        - tax: 'IVA'
+                                          base: 12800.00
+                                          amount: 8533.33
+                                    series: 'RET-A'
+                                    metadata:
+                                        internal_ref: 'Q1-2026-RETENTION'
+                                        department: 'finance'
+                                    idempotency_key: 'ret-2026-q1-client456'
+                            otro_tipo_retenciones:
+                                summary: 'Otro tipo de retenciones (key 25) — with description'
+                                description: 'Generic retention type. Requires retention_description to describe the type of retention.'
+                                value:
+                                    retention_key: '25'
+                                    client:
+                                        id: 'client_misc_abc'
+                                    period_start: 1
+                                    period_end: 6
+                                    period_year: 2026
+                                    total_operation: 40000.00
+                                    total_exempt: 0
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 40000.00
+                                          amount: 4000.00
+                                    retention_description: 'Retención por servicios de consultoría especializada en seguridad informática'
+                            isr_only_with_custom_payment_type:
+                                summary: 'ISR with custom payment type override'
+                                description: 'Override the default payment type. By default ISR uses "03" (provisional), but you can set it to "01" (definitivo) if needed.'
+                                value:
+                                    retention_key: '01'
+                                    client:
+                                        id: 'client_consultant_789'
+                                    period_start: 3
+                                    period_end: 3
+                                    period_year: 2026
+                                    total_operation: 25000.00
+                                    taxes:
+                                        - tax: 'ISR'
+                                          base: 25000.00
+                                          amount: 2500.00
+                                          payment_type: '01'
             responses:
                 '201':
                     description: Retention created and stamped successfully
@@ -8937,12 +9249,84 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/StandardSuccessResponse'
+                            examples:
+                                success:
+                                    summary: 'Retention stamped successfully'
+                                    value:
+                                        message: 'Retention created successfully'
+                                        data:
+                                            id: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                            uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                            status: 'valid'
+                                            document_type: 'retenciones'
+                                            retention_key: '26'
+                                            folio_number: '1'
+                                            series: 'RET'
+                                            issuer:
+                                                legal_name: 'MI EMPRESA SA DE CV'
+                                                tax_id: 'MEE200101ABC'
+                                                tax_system: '601'
+                                            receiver:
+                                                legal_name: 'GRUPO JINIM'
+                                                tax_id: 'GJI180508GM9'
+                                                nationality: 'Nacional'
+                                            period:
+                                                start: 1
+                                                end: 1
+                                                year: 2026
+                                            totals:
+                                                total_operation: 93116.98
+                                                total_taxable: 93116.98
+                                                total_exempt: 0
+                                                total_retained: 9777.27
+                                                tax_retained:
+                                                    - tax: '001'
+                                                      base: 93116.98
+                                                      amount: 2327.92
+                                                      payment_type: '03'
+                                                    - tax: '002'
+                                                      base: 14898.71
+                                                      amount: 7449.35
+                                                      payment_type: '01'
+                                            stamp:
+                                                uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                                stamped_at: '2026-01-15T10:30:45'
+                                                provider: 'prodigia'
+                                            verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=9d9b0e5b-034c-42f7-bd21-3a868a57c13e&re=MEE200101ABC&rr=GJI180508GM9&tt=93116.98&fe=abcd1234'
+                                            livemode: true
+                                            created_at: 1736942445000
+                                            metadata: null
                 '400':
                     description: Bad request or stamping error
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ValidationErrorResponse'
+                            examples:
+                                validation_error:
+                                    summary: 'Missing required fields'
+                                    value:
+                                        error:
+                                            code: 'bad_request'
+                                            message: 'retention_key: Missing required field; taxes: Missing required field'
+                                client_not_found:
+                                    summary: 'Client ID not found'
+                                    value:
+                                        error:
+                                            code: 'bad_request'
+                                            message: 'Client not found: invalid_client_id'
+                                no_provider:
+                                    summary: 'No SAT provider configured'
+                                    value:
+                                        error:
+                                            code: 'bad_request'
+                                            message: 'No SAT provider configured for this team'
+                                stamping_error:
+                                    summary: 'SAT stamping failed'
+                                    value:
+                                        error:
+                                            code: 'cfdi_service_error'
+                                            message: 'CFDI33184 - El valor del atributo RFC del receptor no existe en la lista de RFC inscritos no cancelados del SAT'
                 '401':
                     description: Unauthorized
                     content:
@@ -8977,6 +9361,95 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/StandardSuccessResponse'
+                            examples:
+                                valid_retention:
+                                    summary: 'Valid stamped retention'
+                                    value:
+                                        message: 'Retention retrieved successfully'
+                                        data:
+                                            id: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                            uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                            status: 'valid'
+                                            document_type: 'retenciones'
+                                            retention_key: '26'
+                                            folio_number: '1'
+                                            series: 'RET'
+                                            issuer:
+                                                legal_name: 'MI EMPRESA SA DE CV'
+                                                tax_id: 'MEE200101ABC'
+                                                tax_system: '601'
+                                            receiver:
+                                                legal_name: 'GRUPO JINIM'
+                                                tax_id: 'GJI180508GM9'
+                                                nationality: 'Nacional'
+                                            period:
+                                                start: 1
+                                                end: 1
+                                                year: 2026
+                                            totals:
+                                                total_operation: 93116.98
+                                                total_taxable: 93116.98
+                                                total_exempt: 0
+                                                total_retained: 9777.27
+                                                tax_retained:
+                                                    - tax: '001'
+                                                      base: 93116.98
+                                                      amount: 2327.92
+                                                      payment_type: '03'
+                                                    - tax: '002'
+                                                      base: 14898.71
+                                                      amount: 7449.35
+                                                      payment_type: '01'
+                                            stamp:
+                                                uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                                stamped_at: '2026-01-15T10:30:45'
+                                                provider: 'prodigia'
+                                            verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=9d9b0e5b-034c-42f7-bd21-3a868a57c13e&re=MEE200101ABC&rr=GJI180508GM9&tt=93116.98&fe=abcd1234'
+                                            livemode: true
+                                            created_at: 1736942445000
+                                            metadata: null
+                                canceled_retention:
+                                    summary: 'Canceled retention'
+                                    value:
+                                        message: 'Retention retrieved successfully'
+                                        data:
+                                            id: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
+                                            uuid: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
+                                            status: 'canceled'
+                                            document_type: 'retenciones'
+                                            retention_key: '01'
+                                            folio_number: '5'
+                                            series: 'RET'
+                                            issuer:
+                                                legal_name: 'MI EMPRESA SA DE CV'
+                                                tax_id: 'MEE200101ABC'
+                                                tax_system: '601'
+                                            receiver:
+                                                legal_name: 'JUAN PEREZ GARCIA'
+                                                tax_id: 'PEGJ800101ABC'
+                                                nationality: 'Nacional'
+                                            period:
+                                                start: 1
+                                                end: 3
+                                                year: 2026
+                                            totals:
+                                                total_operation: 50000.00
+                                                total_taxable: 50000.00
+                                                total_exempt: 0
+                                                total_retained: 5000.00
+                                                tax_retained:
+                                                    - tax: '001'
+                                                      base: 50000.00
+                                                      amount: 5000.00
+                                                      payment_type: '03'
+                                            stamp:
+                                                uuid: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
+                                                stamped_at: '2026-01-10T14:20:30'
+                                                provider: 'prodigia'
+                                            verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c&re=MEE200101ABC&rr=PEGJ800101ABC&tt=50000.00&fe=efgh5678'
+                                            livemode: true
+                                            created_at: 1736510430000
+                                            metadata: null
                 '404':
                     description: Retention not found
                     content:
@@ -9026,8 +9499,21 @@ paths:
                                 replace_uuid:
                                     type: string
                                     description: UUID of replacement document (required when motive is "01")
-                        example:
-                            motive: '02'
+                        examples:
+                            cancel_with_errors:
+                                summary: 'Cancel — document had errors (no replacement)'
+                                value:
+                                    motive: '02'
+                            cancel_with_replacement:
+                                summary: 'Cancel — replace with new document'
+                                description: 'Motive 01 requires the UUID of the replacement document'
+                                value:
+                                    motive: '01'
+                                    replace_uuid: 'a1b2c3d4-5678-90ab-cdef-1234567890ab'
+                            cancel_not_carried_out:
+                                summary: 'Cancel — operation not carried out'
+                                value:
+                                    motive: '03'
             responses:
                 '200':
                     description: Retention canceled successfully
@@ -9035,12 +9521,39 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/StandardSuccessResponse'
+                            examples:
+                                canceled:
+                                    summary: 'Retention canceled'
+                                    value:
+                                        message: 'Retention canceled successfully'
+                                        data:
+                                            id: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                            uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                                            status: 'canceled'
+                                            document_type: 'retenciones'
+                                            retention_key: '26'
+                                            cancellation:
+                                                motive: '02'
+                                                canceled_at: '2026-03-06T12:00:00'
                 '400':
                     description: Bad request or cancellation error
                     content:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/ValidationErrorResponse'
+                            examples:
+                                already_canceled:
+                                    summary: 'Already canceled'
+                                    value:
+                                        error:
+                                            code: 'bad_request'
+                                            message: 'Retention is already canceled'
+                                missing_replacement:
+                                    summary: 'Missing replacement UUID for motive 01'
+                                    value:
+                                        error:
+                                            code: 'bad_request'
+                                            message: 'replace_uuid is required when motive is 01'
 
     /retentions/{id}/files:
         get:
