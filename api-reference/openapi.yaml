@@ -8729,6 +8729,383 @@ paths:
                                 $ref: '#/components/schemas/ValidationErrorResponse'
 
     # =============================================================================
+    # RETENTIONS - Tax retention documents (Retenciones 2.0)
+    # =============================================================================
+
+    /retentions:
+        get:
+            tags:
+                - Retentions
+            summary: List retentions
+            description: |
+                Retrieve a paginated list of tax retention documents (CFDI Retenciones 2.0).
+
+                **gigstack Connect:** View other teams' retentions using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - $ref: '#/components/parameters/LimitParam'
+                - $ref: '#/components/parameters/NextParam'
+                - $ref: '#/components/parameters/OrderByParam'
+                - $ref: '#/components/parameters/SortParam'
+                - $ref: '#/components/parameters/CreatedGteParam'
+                - $ref: '#/components/parameters/CreatedLteParam'
+                - name: status
+                  in: query
+                  schema:
+                      type: string
+                      enum: [valid, canceled]
+                  description: Filter by retention status
+                - name: retention_key
+                  in: query
+                  schema:
+                      type: string
+                  description: Filter by SAT retention key (cveRetenc), e.g. "26" for Plataformas Tecnológicas
+            responses:
+                '200':
+                    description: Retentions retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+
+        post:
+            tags:
+                - Retentions
+            summary: Create retention
+            description: |
+                Create and stamp a new tax retention document (CFDI Retenciones 2.0).
+
+                Supports two input formats:
+                - **Native format:** Uses `cveRetenc`, `periodo`, `totales` with `impRetenidos`
+                - **Simplified format:** Uses `retentionKey`, `period`, `totals` with `taxRetained`
+
+                The API auto-detects the format and normalizes internally.
+
+                **Features:**
+                - Automatic folio generation
+                - SAT stamping via configured PAC provider
+                - PDF and XML generation
+                - Complement support (PlataformasTecnológicas, Intereses, etc.)
+
+                **gigstack Connect:** Create retentions for other teams using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - receptor
+                                - periodo
+                                - totales
+                                - cveRetenc
+                            properties:
+                                cveRetenc:
+                                    type: string
+                                    description: SAT retention type code (01-26)
+                                    example: '26'
+                                receptor:
+                                    type: object
+                                    required:
+                                        - nacionalidadR
+                                    properties:
+                                        nacionalidadR:
+                                            type: string
+                                            enum: [Nacional, Extranjero]
+                                        rfcR:
+                                            type: string
+                                            description: Receptor RFC (for Nacional)
+                                            example: 'XAXX010101000'
+                                        nomDenRazSocR:
+                                            type: string
+                                            description: Receptor legal name (for Nacional)
+                                        domicilioFiscalR:
+                                            type: string
+                                            description: Receptor fiscal zip code (for Nacional)
+                                            example: '06700'
+                                periodo:
+                                    type: object
+                                    required:
+                                        - mesIni
+                                        - mesFin
+                                        - ejercicio
+                                    properties:
+                                        mesIni:
+                                            type: string
+                                            description: Start month (01-12)
+                                            example: '01'
+                                        mesFin:
+                                            type: string
+                                            description: End month (01-12)
+                                            example: '01'
+                                        ejercicio:
+                                            type: string
+                                            description: Fiscal year
+                                            example: '2026'
+                                totales:
+                                    type: object
+                                    required:
+                                        - montoTotOperacion
+                                        - montoTotGrav
+                                        - montoTotExent
+                                        - montoTotRet
+                                    properties:
+                                        montoTotOperacion:
+                                            type: number
+                                            description: Total operation amount
+                                            example: 93116.98
+                                        montoTotGrav:
+                                            type: number
+                                            description: Total taxable amount
+                                            example: 93116.98
+                                        montoTotExent:
+                                            type: number
+                                            description: Total exempt amount
+                                            example: 0
+                                        montoTotRet:
+                                            type: number
+                                            description: Total retained amount
+                                            example: 9777.27
+                                        impRetenidos:
+                                            type: array
+                                            items:
+                                                type: object
+                                                properties:
+                                                    baseRet:
+                                                        type: number
+                                                        example: 93116.98
+                                                    impuestoRet:
+                                                        type: string
+                                                        description: 'Tax code: 001=ISR, 002=IVA, 003=IEPS'
+                                                        example: '001'
+                                                    montoRet:
+                                                        type: number
+                                                        example: 2327.92
+                                                    tipoPagoRet:
+                                                        type: string
+                                                        description: 'Payment type: 01=Definitivo, 03=Provisional'
+                                                        example: '03'
+                                complementType:
+                                    type: string
+                                    description: Complement type identifier
+                                complementData:
+                                    description: Complement-specific data (structure varies by complement type)
+                                idempotency_key:
+                                    type: string
+                                    description: Unique key to prevent duplicate creation
+                        example:
+                            cveRetenc: '26'
+                            receptor:
+                                nacionalidadR: 'Nacional'
+                                rfcR: 'GJI180508GM9'
+                                nomDenRazSocR: 'GRUPO JINIM'
+                                domicilioFiscalR: '11590'
+                            periodo:
+                                mesIni: '01'
+                                mesFin: '01'
+                                ejercicio: '2026'
+                            totales:
+                                montoTotOperacion: 93116.98
+                                montoTotGrav: 93116.98
+                                montoTotExent: 0
+                                montoTotRet: 9777.27
+                                impRetenidos:
+                                    - baseRet: 93116.98
+                                      impuestoRet: '001'
+                                      montoRet: 2327.92
+                                      tipoPagoRet: '03'
+                                    - baseRet: 14898.71
+                                      impuestoRet: '002'
+                                      montoRet: 7449.35
+                                      tipoPagoRet: '01'
+            responses:
+                '201':
+                    description: Retention created and stamped successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StandardSuccessResponse'
+                '400':
+                    description: Bad request or stamping error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+
+    /retentions/{id}:
+        get:
+            tags:
+                - Retentions
+            summary: Get retention
+            description: |
+                Retrieve a specific tax retention document by ID (UUID).
+
+                **gigstack Connect:** View other teams' retentions using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Retention UUID
+                  example: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Retention retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StandardSuccessResponse'
+                '404':
+                    description: Retention not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotFoundError'
+
+        delete:
+            tags:
+                - Retentions
+            summary: Cancel retention
+            description: |
+                Cancel a stamped tax retention document with the SAT.
+
+                **Cancellation motives** (SAT catalog):
+                - `01` - Comprobante emitido con errores con relación
+                - `02` - Comprobante emitido con errores sin relación
+                - `03` - No se llevó a cabo la operación
+                - `04` - Operación nominativa relacionada en una factura global
+
+                **gigstack Connect:** Cancel other teams' retentions using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Retention UUID
+                  example: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - motive
+                            properties:
+                                motive:
+                                    type: string
+                                    description: SAT cancellation motive code
+                                    enum: ['01', '02', '03', '04']
+                                    example: '02'
+                                replace_uuid:
+                                    type: string
+                                    description: UUID of replacement document (required when motive is "01")
+                        example:
+                            motive: '02'
+            responses:
+                '200':
+                    description: Retention canceled successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StandardSuccessResponse'
+                '400':
+                    description: Bad request or cancellation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+
+    /retentions/{id}/files:
+        get:
+            tags:
+                - Retentions
+            summary: Get retention files
+            description: |
+                Retrieve PDF and/or XML files for a stamped tax retention document.
+
+                Use `file_type` query parameter to request specific file types.
+
+                **gigstack Connect:** Access other teams' retention files using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Retention UUID
+                  example: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
+                - name: file_type
+                  in: query
+                  schema:
+                      type: string
+                      enum: [pdf, xml]
+                  description: Filter by file type. If omitted, returns both PDF and XML.
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Files retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: array
+                                        items:
+                                            type: object
+                                            properties:
+                                                content:
+                                                    type: string
+                                                    description: Base64-encoded file content
+                                                filename:
+                                                    type: string
+                                                    example: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e.pdf'
+                                                type:
+                                                    type: string
+                                                    example: 'application/pdf'
+                                    message:
+                                        type: string
+                                        example: 'Files retrieved successfully'
+                '404':
+                    description: Files not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/NotFoundError'
+
+    # =============================================================================
     # TEAMS - Organized by HTTP Method (GET → POST → PUT → DELETE)
     # =============================================================================
 
@@ -10242,6 +10619,9 @@ tags:
     - name: Receipts
       description: Receipt creation and management with CFDI stamping capabilities
 
+    - name: Retentions
+      description: Tax retention documents (CFDI Retenciones 2.0) — creation, stamping, cancellation, and file retrieval
+
     - name: Teams
       description: Team management, settings, and member administration
 
@@ -10253,4 +10633,4 @@ tags:
 
 # Apidog-specific extensions
 x-apidog-folder: 'Gigstack API v2'
-x-apidog-orders: ['gigstack Connect', 'Clients', 'Services', 'Invoices', 'Payments', 'Receipts', 'Teams', 'Users', 'Webhooks']
+x-apidog-orders: ['gigstack Connect', 'Clients', 'Services', 'Invoices', 'Payments', 'Receipts', 'Retentions', 'Teams', 'Users', 'Webhooks']
