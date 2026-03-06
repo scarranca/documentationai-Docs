@@ -8810,7 +8810,6 @@ paths:
                                               stamp:
                                                   uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
                                                   stamped_at: '2026-01-15T10:30:45'
-                                                  provider: 'prodigia'
                                               livemode: true
                                               created_at: 1736942445000
                                             - id: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
@@ -9291,7 +9290,6 @@ paths:
                                             stamp:
                                                 uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
                                                 stamped_at: '2026-01-15T10:30:45'
-                                                provider: 'prodigia'
                                             verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=9d9b0e5b-034c-42f7-bd21-3a868a57c13e&re=MEE200101ABC&rr=GJI180508GM9&tt=93116.98&fe=abcd1234'
                                             livemode: true
                                             created_at: 1736942445000
@@ -9403,7 +9401,6 @@ paths:
                                             stamp:
                                                 uuid: '9d9b0e5b-034c-42f7-bd21-3a868a57c13e'
                                                 stamped_at: '2026-01-15T10:30:45'
-                                                provider: 'prodigia'
                                             verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=9d9b0e5b-034c-42f7-bd21-3a868a57c13e&re=MEE200101ABC&rr=GJI180508GM9&tt=93116.98&fe=abcd1234'
                                             livemode: true
                                             created_at: 1736942445000
@@ -9445,7 +9442,6 @@ paths:
                                             stamp:
                                                 uuid: 'c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c'
                                                 stamped_at: '2026-01-10T14:20:30'
-                                                provider: 'prodigia'
                                             verification_url: 'https://verificacfdi.facturaelectronica.sat.gob.mx/default.aspx?id=c4e2f1a8-9b3d-4e7f-a1c2-8d5e6f7a0b3c&re=MEE200101ABC&rr=PEGJ800101ABC&tt=50000.00&fe=efgh5678'
                                             livemode: true
                                             created_at: 1736510430000
