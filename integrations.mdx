@@ -1,0 +1,185 @@
+---
+title: Integrations and Connections
+description: Connect Gigstack to popular payment and e-commerce platforms for seamless automation of invoicing and payments.
+---
+
+## Overview
+
+Gigstack integrates with leading payment processors and e-commerce platforms to automate your invoicing process. You connect your accounts once, and Gigstack handles CFDI generation, fiscal reconciliation, and SAT compliance automatically whenever payments arrive.
+
+<Columns cols={3}>
+  <Card title="Stripe" icon="dollar-sign" href="#stripe-setup">
+    Automate invoicing for Stripe payments.
+  </Card>
+  <Card title="PayPal" icon="paypal" href="#paypal-setup">
+    Seamless PayPal transaction handling.
+  </Card>
+  <Card title="Shopify" icon="shopping-cart" href="#shopify-setup">
+    E-commerce order synchronization.
+  </Card>
+  <Card title="WooCommerce" icon="wordpress" href="#woocommerce-setup">
+    WordPress store integration.
+  </Card>
+  <Card title="SAT API" icon="file-text" href="#sat-setup">
+    Direct SAT compliance.
+  </Card>
+  <Card title="Webhooks" icon="zap" href="#webhooks">
+    Custom tool connections.
+  </Card>
+</Columns>
+
+<Callout kind="info">
+  Before starting, ensure you have admin access to your Gigstack dashboard at `https://app.gigstack.pro` and your integration accounts.
+</Callout>
+
+## Stripe Integration
+
+Connect Stripe to Gigstack to trigger automatic CFDI issuance on every successful payment.
+
+<Tabs>
+  <Tab title="Dashboard Setup" icon="settings">
+    <Steps>
+      <Step title="Log in to Gigstack" icon="log-in">
+        Navigate to `Integrations > Stripe` in your dashboard.
+      </Step>
+      <Step title="Connect Account" icon="link">
+        Click `Connect Stripe` and authorize via OAuth.
+      </Step>
+      <Step title="Configure Webhook" icon="zap">
+        In Stripe dashboard, add webhook endpoint: `https://api.example.com/webhooks/stripe`.
+      </Step>
+      <Step title="Test Connection" icon="play">
+        Process a test payment and verify CFDI generation.
+      </Step>
+    </Steps>
+  </Tab>
+  <Tab title="Webhook Events" icon="code">
+    Gigstack listens for these Stripe events:
+
+````json
+{
+  "event": "payment_intent.succeeded",
+  "data": {
+    "object": {
+      "amount": 2000,
+      "currency": "mxn"
+    }
+  }
+}
+````
+
+  </Tab>
+</Tabs>
+
+## PayPal and E-commerce Integrations
+
+Follow similar steps for PayPal, Shopify, and WooCommerce. Each platform requires account linking and webhook setup.
+
+<CodeGroup tabs="PayPal,Shopify">
+````javascript
+// PayPal Webhook Example
+const webhookUrl = 'https://api.example.com/webhooks/paypal';
+app.post('/paypal-webhook', (req, res) => {
+  if (req.body.event_type === 'PAYMENT.SALE.COMPLETED') {
+    // Trigger Gigstack invoice
+    fetch('https://api.example.com/invoices', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${YOUR_API_KEY}` },
+      body: JSON.stringify({ paypalPaymentId: req.body.resource_id })
+    });
+  }
+  res.sendStatus(200);
+});
+````
+````javascript
+// Shopify Webhook
+const shopifyWebhook = 'https://api.example.com/webhooks/shopify';
+admin.webhooks.register('orders/create', shopifyWebhook);
+````
+</CodeGroup>
+
+## SAT API Connection
+
+Gigstack uses the official SAT API for CFDI validation and submission. Enable it in your dashboard under `Integrations > SAT`.
+
+<ParamField header="X-API-Key" param-type="string" required="true">
+  Your Gigstack `{API_KEY}` for SAT requests.
+</ParamField>
+
+<Request show-lines="true">
+```bash
+curl -X POST https://api.example.com/cfdi/issue \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount": 1000,
+    "currency": "MXN",
+    "satRfc": "your-rfc"
+  }'
+```
+</Request>
+
+<Response tabs="200,400">
+```json
+{
+  "uuid": "123e4567-e89b-12d3-a456-426614174000",
+  "status": "issued"
+}
+```
+
+```json
+{
+  "error": "Invalid RFC format"
+}
+```
+</Response>
+
+## Webhook Configuration
+
+For custom tools, configure outgoing webhooks from Gigstack to your endpoint.
+
+```javascript
+// Example: Receive Gigstack webhook
+app.post('/gigstack-webhook', (req, res) => {
+  const { event, invoice } = req.body;
+  if (event === 'invoice.created') {
+    console.log(`New CFDI: ${invoice.uuid}`);
+  }
+  res.status(200).send('OK');
+});
+```
+
+Set your endpoint in Gigstack dashboard: `https://your-webhook-url.com/gigstack-webhook`.
+
+## Troubleshooting
+
+<ExpandableGroup>
+  <Expandable title="Webhook Not Triggering" default-open="true">
+    - Verify endpoint URL is publicly accessible (no firewall blocks).
+    - Check Stripe/PayPal webhook logs for failures.
+    - Ensure response code `200` from your server.
+  </Expandable>
+  <Expandable title="SAT Validation Errors">
+    - Confirm RFC and regime details match your SAT records.
+    - Test with small amounts first.
+  </Expandable>
+  <Expandable title="Integration Sync Issues">
+    - Reconnect the account in Gigstack dashboard.
+    - Review recent logs under `Integrations > Logs`.
+  </Expandable>
+</ExpandableGroup>
+
+<Callout kind="tip">
+  For advanced setups or persistent issues, contact support via your dashboard.
+</Callout>
+
+## Next Steps
+
+<Columns cols={2}>
+  <Card title="API Reference" icon="book-open" href="/authentication">
+    Dive into full API details.
+  </Card>
+  <Card title="Best Practices" icon="shield" href="/guides/best-practices">
+    Optimize your integrations.
+  </Card>
+</Columns>

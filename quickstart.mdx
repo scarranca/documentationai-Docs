@@ -1,0 +1,145 @@
+---
+title: Getting Started with Gigstack
+description: Set up your Gigstack account, connect your first payment processor, and generate an automated CFDI invoice in under 5 minutes.
+---
+
+<Callout kind="info" title="Prerequisites">
+Before starting, ensure you have:
+- An active Stripe, PayPal, or Shopify account
+- A Mexican RFC (Registro Federal de Contribuyentes) for SAT compliance
+- Admin access to your payment processor dashboard
+</Callout>
+
+## Create Your Gigstack Account
+
+Sign up for Gigstack to automate your CFDI invoicing. The process takes less than 2 minutes.
+
+<Steps>
+  <Step title="Sign Up" icon="user-plus">
+    Visit [https://app.gigstack.pro/register](https://app.gigstack.pro/register) and create your account with your email and password.
+
+    Provide your business details including RFC and company name.
+  </Step>
+  <Step title="Verify Email" icon="mail">
+    Check your inbox for the verification email from Gigstack and click the link to activate your account.
+  </Step>
+  <Step title="Log In" icon="log-in">
+    Return to [https://app.gigstack.pro/login](https://app.gigstack.pro/login) and sign in to access your dashboard.
+  </Step>
+</Steps>
+
+## Dashboard Overview
+
+Once logged in, you'll see the Gigstack dashboard with key metrics like total invoices issued, pending payments, and revenue tracked.
+
+<Image
+  src="https://gigstack.io/images/dashboard-hero-mx.png"
+  alt="Gigstack dashboard showing income, invoices, and metrics"
+  width="800"
+  height="500"
+/>
+
+Use the sidebar to navigate to Invoices, Integrations, and SAT Compliance sections.
+
+<Columns cols={3}>
+  <Card title="Invoices" icon="file-text" href="#invoices">
+    View and manage automated CFDI invoices.
+  </Card>
+  <Card title="Integrations" icon="plug" href="#integrations">
+    Connect payment processors.
+  </Card>
+  <Card title="Compliance" icon="shield" href="#compliance">
+    SAT settings and reports.
+  </Card>
+</Columns>
+
+## Connect a Payment Processor
+
+Gigstack integrates seamlessly with popular processors. Choose your provider below.
+
+<Tabs>
+  <Tab title="Stripe" icon="dollar-sign">
+    <Steps>
+      <Step title="Get Webhook Secret" icon="key">
+        In your Stripe dashboard, go to Developers > Webhooks. Add endpoint `https://api.gigstack.io/webhooks/stripe`.
+      </Step>
+      <Step title="Copy Signing Secret">
+        Copy the signing secret (starts with `whsec_`).
+      </Step>
+      <Step title="Add to Gigstack">
+        In Gigstack Integrations, select Stripe, paste the secret, and save.
+      </Step>
+    </Steps>
+
+    <CodeGroup tabs="Webhook Config">
+      ````json
+      {
+        "url": "https://api.gigstack.io/webhooks/stripe",
+        "events": ["checkout.session.completed", "payment_intent.succeeded"]
+      }
+      ````
+    </CodeGroup>
+  </Tab>
+  <Tab title="PayPal" icon="paypal">
+    <Steps>
+      <Step title="Enable IPN" icon="settings">
+        In PayPal, go to Account Settings > Notifications > Instant Payment Notifications.
+      </Step>
+      <Step title="Set Listener URL">
+        Enter `https://api.gigstack.io/webhooks/paypal` as the Notification URL.
+      </Step>
+      <Step title="Connect in Gigstack">
+        Paste your PayPal email in Gigstack Integrations > PayPal.
+      </Step>
+    </Steps>
+  </Tab>
+</Tabs>
+
+<Callout kind="tip">
+Test the connection by making a sandbox payment in your processor. Gigstack will auto-generate a CFDI invoice.
+</Callout>
+
+## Issue Your First Automated Invoice
+
+With integration active:
+
+1. Process a test payment in Stripe or PayPal.
+2. Gigstack detects it instantly and emits a CFDI.
+3. Download the PDF and XML from the Invoices tab.
+
+Monitor status in real-time on the dashboard.
+
+## Basic SAT Compliance Setup
+
+Configure your SAT credentials for legal compliance.
+
+<Expandable title="Advanced SAT Configuration" default-open="false">
+  Enter your:
+  - Production certificate (.cer, .key, password)
+  - e.firma password
+
+  <ParamField header="X-RFC" param-type="string" required="true">
+    Your business RFC.
+  </ParamField>
+
+  <ParamField body="regimen" param-type="string" required="false">
+    Fiscal regimen code (e.g., "616" for general activities).
+  </ParamField>
+
+  Test issuance with a sandbox CFDI first.
+</Expandable>
+
+## Next Steps
+
+<Columns cols={2}>
+  <Card title="Authentication" icon="lock" href="/authentication">
+    Secure your API access.
+  </Card>
+  <Card title="Advanced Integrations" icon="plug" href="/integrations">
+    Connect Shopify and more.
+  </Card>
+</Columns>
+
+<Callout kind="success">
+Congratulations! You've set up Gigstack. Automate your next payment and watch CFDI magic happen.
+</Callout>

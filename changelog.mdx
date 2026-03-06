@@ -1,0 +1,121 @@
+---
+title: Changelog
+description: Review the latest updates, new features, and improvements in Gigstack to stay informed on platform enhancements.
+---
+
+## Recent Updates
+
+<Callout kind="info">
+Subscribe to our changelog RSS feed or join the Gigstack Discord to get notified about new releases and important fixes.
+</Callout>
+
+<Update label="2024-10-15" description="v1.2.0" tags={["feature", "improvement"]}>
+
+## New Features
+
+- Added Shopify integration for automatic CFDI generation on completed orders
+- Introduced AI-powered invoice reconciliation matching payments to fiscal requirements
+- New webhook support for custom workflows with Stripe and PayPal events
+
+## Improvements
+
+- Enhanced SAT compliance with real-time validation for UUID and CFDIs
+- Dashboard performance improved by 40% for high-volume users
+- Better mobile support for invoice approvals and payment tracking
+
+## Bug Fixes
+
+- Fixed intermittent sync issues with WooCommerce webhooks
+- Resolved CFDI cancellation errors during peak hours
+
+</Update>
+
+<Update label="2024-09-20" description="v1.1.0" tags={["feature", "bugfix"]}>
+
+## New Features
+
+- PayPal integration now supports adaptive payments and automatic facturation
+- Custom invoice templates with branding options for Mexican enterprises
+- Roadmap preview: Multi-country SAT support (Colombia, Chile coming soon)
+
+## Bug Fixes
+
+- Corrected timestamp mismatches in fiscal conciliations
+- Fixed export errors for large CFDI batches (>1000 invoices)
+
+## Improvements
+
+- UI updates for faster navigation in the automation rules editor
+
+</Update>
+
+<Update label="2024-08-10" description="v1.0.0" tags={["breaking", "feature"]}>
+
+## Initial Release
+
+- Core automation engine for Stripe → CFDI pipeline
+- Full SAT integration for issuance, cancellation, and status checks
+- Basic dashboard with income tracking and invoice metrics
+
+## Breaking Changes
+
+- Updated API authentication to use JWT tokens instead of API keys (migrate via dashboard)
+
+</Update>
+
+## Upcoming Roadmap
+
+<Columns cols={3}>
+  <Card title="Q4 2024" icon="zap" href="#roadmap-q4">
+    Multi-country expansion and advanced AI features.
+  </Card>
+  <Card title="Q1 2025" icon="trending-up" href="#roadmap-q1">
+    Enterprise controls and bulk operations.
+  </Card>
+  <Card title="Community Requests" icon="users" href="/help-center">
+    Vote on features in our feedback portal.
+  </Card>
+</Columns>
+
+## Upgrade Instructions
+
+Follow these steps to update your Gigstack integration to the latest version.
+
+<Steps>
+  <Step title="Check Compatibility" icon="check-circle">
+
+Review your current setup against the [migration guide](https://docs.gigstack.io/migration).
+
+  </Step>
+  <Step title="Update Webhooks" icon="settings">
+
+````javascript
+// Update your webhook endpoint to v1.2.0 format
+app.post('/gigstack-webhook', async (req, res) => {
+  const event = req.body;
+  if (event.type === 'payment_intent.succeeded') {
+    await gigstack.createCFDI({
+      stripeEvent: event,
+      apiKey: process.env.GIGSTACK_API_KEY
+    });
+  }
+  res.json({received: true});
+});
+````
+
+  </Step>
+  <Step title="Test Automation" icon="play-circle">
+
+Use the dashboard tester to simulate Stripe payments and verify CFDI issuance.
+
+  </Step>
+  <Step title="Monitor Logs" icon="activity">
+
+Check the events log for any sync errors post-upgrade.
+
+  </Step>
+</Steps>
+
+<Callout kind="tip">
+For self-hosted setups, run `gigstack-cli upgrade` to apply the latest patches automatically.
+</Callout>
