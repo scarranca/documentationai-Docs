@@ -1479,6 +1479,11 @@ components:
                 send_email:
                     type: boolean
                     example: true
+                ignore_emails:
+                    type: boolean
+                    nullable: true
+                    example: false
+                    description: 'When set to `true`, suppresses all email notifications for this invoice. Overrides `send_email`. Useful for bulk imports or migrations.'
                 emails:
                     type: array
                     items:
@@ -1937,6 +1942,11 @@ components:
                     nullable: true
                     example: true
                     description: 'Whether to send invoice via email'
+                ignore_emails:
+                    type: boolean
+                    nullable: true
+                    example: false
+                    description: 'When set to `true`, suppresses all email notifications for this invoice. Overrides `send_email`. Useful for bulk imports or migrations.'
                 emails:
                     type: array
                     nullable: true
@@ -2428,6 +2438,11 @@ components:
                     nullable: true
                     example: true
                     description: 'Whether to send an email notification to the customer'
+                ignore_emails:
+                    type: boolean
+                    nullable: true
+                    example: false
+                    description: 'When set to `true`, suppresses all email notifications for this payment request and any automated documents generated from it.'
                 emails:
                     type: array
                     nullable: true
