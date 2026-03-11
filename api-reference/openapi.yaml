@@ -1243,6 +1243,377 @@ components:
                     example: '01'
                     description: 'Export classification code for international transactions'
 
+        # =============================================================================
+        # DRAFT INVOICE SCHEMAS (Pre-Facturas)
+        # =============================================================================
+
+        DraftInvoiceInput:
+            type: object
+            required:
+                - invoice_type
+            properties:
+                invoice_type:
+                    type: string
+                    enum: ['I', 'E']
+                    example: 'I'
+                    description: |
+                        Type of invoice to draft:
+                        - `I`: Income (Ingreso)
+                        - `E`: Egress (Egreso / Credit Note)
+                client:
+                    type: object
+                    nullable: true
+                    description: Client information (optional at creation, required for stamping)
+                    properties:
+                        id:
+                            type: string
+                            example: 'client_1234567890'
+                        search:
+                            type: object
+                            properties:
+                                on_key:
+                                    type: string
+                                    example: 'tax_id'
+                                on_value:
+                                    type: string
+                                    example: 'PEGJ800101ABC'
+                                auto_create:
+                                    type: boolean
+                                    example: true
+                        name:
+                            type: string
+                            nullable: true
+                        email:
+                            type: string
+                            format: email
+                            nullable: true
+                        legal_name:
+                            type: string
+                            nullable: true
+                        tax_id:
+                            type: string
+                            nullable: true
+                        tax_system:
+                            type: string
+                            nullable: true
+                        address:
+                            $ref: '#/components/schemas/ClientAddress'
+                currency:
+                    type: string
+                    example: 'MXN'
+                    description: Currency code (optional at creation, required for stamping)
+                exchange_rate:
+                    type: number
+                    example: 1.0
+                    description: Exchange rate (auto-fetched if not provided at stamp time)
+                use:
+                    type: string
+                    example: 'G03'
+                    description: CFDI use code (optional at creation, required for stamping)
+                payment_form:
+                    type: string
+                    enum: ['01','02','03','04','05','06','08','12','13','14','15','17','23','24','25','26','27','28','29','30','31','99']
+                    example: '03'
+                    description: Payment form code (optional at creation, required for stamping)
+                payment_method:
+                    type: string
+                    enum: ['PUE', 'PPD']
+                    example: 'PUE'
+                    description: Payment method (optional at creation, required for stamping)
+                items:
+                    type: array
+                    description: Invoice line items (optional at creation, required for stamping)
+                    items:
+                        $ref: '#/components/schemas/InvoiceItem'
+                series:
+                    type: string
+                    example: 'A'
+                    description: Invoice series
+                folio_number:
+                    type: number
+                    description: Custom folio number (auto-assigned if not provided at stamp time)
+                automation_type:
+                    type: string
+                    enum: ['payment', 'none']
+                    description: Automation to trigger after stamping
+                exports:
+                    type: string
+                    enum: ['01', '02', '03', '04']
+                    nullable: true
+                    description: Export classification
+                complements:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        properties:
+                            type:
+                                type: string
+                            data:
+                                type: string
+                related_documents:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        properties:
+                            relationship:
+                                type: string
+                            documents:
+                                type: array
+                                items:
+                                    type: string
+                global:
+                    type: object
+                    nullable: true
+                    properties:
+                        periodicity:
+                            type: string
+                        months:
+                            type: string
+                        year:
+                            type: integer
+                invoice_pdf_notes:
+                    type: string
+                    description: Custom notes to include in the PDF
+                addenda:
+                    type: string
+                    nullable: true
+                    description: XML addenda to include
+                send_email:
+                    type: boolean
+                    description: Send email after stamping
+                emails:
+                    type: array
+                    items:
+                        type: string
+                        format: email
+                metadata:
+                    type: object
+                    additionalProperties: true
+                    description: Custom key-value metadata
+
+        DraftInvoiceUpdateInput:
+            description: Same fields as DraftInvoiceInput, but all fields are optional (partial updates supported)
+            type: object
+            properties:
+                invoice_type:
+                    type: string
+                    enum: ['I', 'E']
+                client:
+                    type: object
+                    nullable: true
+                    properties:
+                        id:
+                            type: string
+                        search:
+                            type: object
+                            properties:
+                                on_key:
+                                    type: string
+                                on_value:
+                                    type: string
+                                auto_create:
+                                    type: boolean
+                        name:
+                            type: string
+                            nullable: true
+                        email:
+                            type: string
+                            format: email
+                            nullable: true
+                        legal_name:
+                            type: string
+                            nullable: true
+                        tax_id:
+                            type: string
+                            nullable: true
+                        tax_system:
+                            type: string
+                            nullable: true
+                        address:
+                            $ref: '#/components/schemas/ClientAddress'
+                currency:
+                    type: string
+                exchange_rate:
+                    type: number
+                use:
+                    type: string
+                payment_form:
+                    type: string
+                    enum: ['01','02','03','04','05','06','08','12','13','14','15','17','23','24','25','26','27','28','29','30','31','99']
+                payment_method:
+                    type: string
+                    enum: ['PUE', 'PPD']
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/InvoiceItem'
+                series:
+                    type: string
+                folio_number:
+                    type: number
+                automation_type:
+                    type: string
+                    enum: ['payment', 'none']
+                exports:
+                    type: string
+                    enum: ['01', '02', '03', '04']
+                    nullable: true
+                complements:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        properties:
+                            type:
+                                type: string
+                            data:
+                                type: string
+                related_documents:
+                    type: array
+                    nullable: true
+                    items:
+                        type: object
+                        properties:
+                            relationship:
+                                type: string
+                            documents:
+                                type: array
+                                items:
+                                    type: string
+                global:
+                    type: object
+                    nullable: true
+                    properties:
+                        periodicity:
+                            type: string
+                        months:
+                            type: string
+                        year:
+                            type: integer
+                invoice_pdf_notes:
+                    type: string
+                addenda:
+                    type: string
+                    nullable: true
+                send_email:
+                    type: boolean
+                emails:
+                    type: array
+                    items:
+                        type: string
+                        format: email
+                metadata:
+                    type: object
+                    additionalProperties: true
+
+        DraftInvoiceOutput:
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: Draft document ID
+                    example: 'abc123def456'
+                draft:
+                    type: boolean
+                    example: true
+                    description: Always `true` for draft documents
+                invoice_type:
+                    type: string
+                    enum: ['I', 'E']
+                    example: 'I'
+                client:
+                    $ref: '#/components/schemas/ApiPublicClient'
+                    nullable: true
+                created_at:
+                    type: number
+                    format: int64
+                    description: Unix timestamp in milliseconds
+                    example: 1677651234000
+                updated_at:
+                    type: number
+                    format: int64
+                    description: Unix timestamp in milliseconds of last update
+                    example: 1677651234000
+                currency:
+                    type: string
+                    example: 'MXN'
+                exchange_rate:
+                    type: number
+                    example: 1.0
+                total:
+                    type: number
+                    example: 5800.00
+                subtotal:
+                    type: number
+                    example: 5000.00
+                discount:
+                    type: number
+                    example: 0
+                series:
+                    type: string
+                    example: 'A'
+                folio_number:
+                    type: integer
+                    nullable: true
+                use:
+                    type: string
+                    example: 'G03'
+                payment_form:
+                    type: string
+                    example: '03'
+                payment_method:
+                    type: string
+                    example: 'PUE'
+                date:
+                    type: number
+                    nullable: true
+                    description: Invoice date in milliseconds
+                livemode:
+                    type: boolean
+                owner:
+                    type: string
+                from:
+                    type: string
+                    example: 'api'
+                status:
+                    type: string
+                    example: 'draft'
+                    description: Always `draft` for draft documents
+                items:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/InvoiceItem'
+                addenda:
+                    type: string
+                exports:
+                    type: string
+                invoice_pdf_notes:
+                    type: string
+                global:
+                    type: object
+                    nullable: true
+                related_documents:
+                    type: array
+                    items:
+                        type: object
+                complements:
+                    type: array
+                    items:
+                        type: object
+                metadata:
+                    type: object
+                    additionalProperties: true
+                emails:
+                    type: array
+                    items:
+                        type: string
+
+        # =============================================================================
+        # INVOICE SCHEMAS
+        # =============================================================================
+
         InvoiceIncomeInput:
             type: object
             required:
@@ -7686,6 +8057,453 @@ paths:
                                 $ref: '#/components/schemas/InternalServerError'
 
     # =============================================================================
+    # DRAFT INVOICES (Pre-Facturas) - Create, edit, preview and stamp drafts
+    # =============================================================================
+
+    /invoices/draft:
+        get:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: List draft invoices
+            description: |
+                Retrieve a paginated list of draft invoices (pre-facturas).
+
+                Drafts are incomplete invoices that have not been stamped yet. Use them to prepare invoices incrementally before finalizing.
+
+                **gigstack Connect:** Access other teams' drafts using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - $ref: '#/components/parameters/LimitParam'
+                - $ref: '#/components/parameters/NextParam'
+                - $ref: '#/components/parameters/OrderByParam'
+                - $ref: '#/components/parameters/SortParam'
+                - $ref: '#/components/parameters/CreatedGteParam'
+                - $ref: '#/components/parameters/CreatedLteParam'
+                - name: invoice_type
+                  in: query
+                  description: Filter by invoice type (I = Income, E = Egress)
+                  required: false
+                  schema:
+                      type: string
+                      enum: ['I', 'E']
+                - name: client_id
+                  in: query
+                  description: Filter by client ID
+                  required: false
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: Drafts retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+        post:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: Create draft invoice (pre-factura)
+            description: |
+                Create a new draft invoice (pre-factura) that can be edited and stamped later.
+
+                Only the `invoice_type` field is required. All other fields are optional, allowing you to build the invoice incrementally:
+
+                1. **Create** a draft with minimal data (`invoice_type`)
+                2. **Update** the draft as data becomes available (client, items, payment details)
+                3. **Preview** the draft to generate a PDF with "Sin Validez Fiscal" watermark
+                4. **Stamp** the draft when ready to finalize it into a valid CFDI
+
+                **gigstack Connect:** Create drafts for other teams using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DraftInvoiceInput'
+                        example:
+                            invoice_type: 'I'
+                            currency: 'MXN'
+                            use: 'G03'
+                            payment_form: '03'
+                            payment_method: 'PUE'
+                            client:
+                                id: 'client_1234567890'
+                            items:
+                                - quantity: 1
+                                  description: 'Servicio de consultoría'
+                                  product_key: '80141503'
+                                  unit_key: 'ACT'
+                                  unit_name: 'Actividad'
+                                  unit_price: 5000.00
+                                  taxes:
+                                      - type: 'IVA'
+                                        rate: 0.16
+                                        factor: 'Tasa'
+                                        withholding: false
+                                        inclusive: false
+                            metadata:
+                                project_id: 'PROJ-2024-001'
+            responses:
+                '201':
+                    description: Draft created successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Draft created'
+                                    data:
+                                        $ref: '#/components/schemas/DraftInvoiceOutput'
+                '400':
+                    description: Validation error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+
+    /invoices/draft/{id}:
+        get:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: Get draft invoice
+            description: |
+                Retrieve a specific draft invoice by ID. Includes the preview PDF (base64) if one has been generated.
+
+                **gigstack Connect:** Access other teams' drafts using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Draft invoice ID
+            responses:
+                '200':
+                    description: Draft retrieved successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Draft retrieved successfully'
+                                    data:
+                                        allOf:
+                                            - $ref: '#/components/schemas/DraftInvoiceOutput'
+                                            - type: object
+                                              properties:
+                                                  preview_pdf:
+                                                      type: string
+                                                      description: Base64-encoded preview PDF (if previously generated)
+                '404':
+                    description: Draft not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+        put:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: Update draft invoice
+            description: |
+                Update an existing draft invoice with new data. Supports partial updates — only send the fields you want to change.
+
+                **gigstack Connect:** Update other teams' drafts using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Draft invoice ID
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/DraftInvoiceUpdateInput'
+                        example:
+                            client:
+                                id: 'client_updated_id'
+                            items:
+                                - quantity: 2
+                                  description: 'Updated service'
+                                  unit_price: 3000.00
+                                  product_key: '80141503'
+                                  unit_key: 'ACT'
+                                  unit_name: 'Actividad'
+                                  taxes:
+                                      - type: 'IVA'
+                                        rate: 0.16
+                                        factor: 'Tasa'
+                                        withholding: false
+                                        inclusive: false
+            responses:
+                '200':
+                    description: Draft updated successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Draft updated'
+                                    data:
+                                        $ref: '#/components/schemas/DraftInvoiceOutput'
+                '400':
+                    description: Validation error or document is not a draft
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                '404':
+                    description: Draft not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+        delete:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: Delete draft invoice
+            description: |
+                Permanently delete a draft invoice. This also removes any generated preview files.
+
+                **Note:** Only drafts can be deleted. For stamped invoices, use the cancel endpoint instead.
+
+                **gigstack Connect:** Delete other teams' drafts using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Draft invoice ID
+            responses:
+                '200':
+                    description: Draft deleted successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Draft deleted'
+                                    data:
+                                        type: object
+                                        properties:
+                                            id:
+                                                type: string
+                '404':
+                    description: Draft not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+
+    /invoices/draft/{id}/stamp:
+        post:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: Stamp draft invoice (finalize)
+            description: |
+                Stamp (finalize) a draft invoice into a valid CFDI with SAT.
+
+                The draft **must** have all required fields before stamping:
+                - `client` — a valid client with fiscal data
+                - `items` — at least one item
+                - `use` — CFDI use code (e.g., G03, P01)
+                - `payment_form` — payment form code (e.g., 03, 99)
+                - `payment_method` — PUE or PPD
+                - `currency` — currency code (e.g., MXN, USD)
+
+                After stamping:
+                - The draft document is deleted
+                - A new stamped invoice document is created with a UUID from SAT
+                - The response follows the same format as `POST /invoices/income`
+
+                **gigstack Connect:** Stamp other teams' drafts using the `team` parameter.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Draft invoice ID
+            requestBody:
+                required: false
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            properties:
+                                return_files:
+                                    type: boolean
+                                    description: Include base64 XML and PDF in response
+                                    example: true
+                                send_email:
+                                    type: boolean
+                                    description: Send invoice email to client
+                                    example: true
+                                ignore_emails:
+                                    type: boolean
+                                    description: Do not send any emails
+                                    example: false
+            responses:
+                '200':
+                    description: Invoice created from draft
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Invoice created from draft'
+                                    data:
+                                        $ref: '#/components/schemas/ApiPublicIncomeInvoice'
+                '400':
+                    description: Draft is incomplete or not a draft
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                            examples:
+                                missing_client:
+                                    summary: Missing client
+                                    value:
+                                        message: 'Draft is incomplete — a client and at least one item are required to stamp'
+                                missing_use:
+                                    summary: Missing CFDI use
+                                    value:
+                                        message: 'Draft is missing CFDI use (use)'
+                                not_a_draft:
+                                    summary: Already stamped
+                                    value:
+                                        message: 'Document is not a draft — it may have already been stamped'
+                '429':
+                    description: Team credit limit reached
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Team credit limit reached'
+                                    error:
+                                        type: string
+                                    credit_limit:
+                                        type: integer
+                                    used_credits:
+                                        type: integer
+
+    /invoices/draft/{id}/preview:
+        post:
+            tags:
+                - Invoices
+                - Draft Invoices (Pre-Facturas)
+            summary: Generate draft preview PDF (pre-factura)
+            description: |
+                Generate a preview PDF for a draft invoice with a **"Sin Validez Fiscal"** watermark.
+
+                This is the **pre-factura** feature: it runs the full CFDI pipeline (normalization, XML mapping, PDF generation) without actually stamping with SAT. The generated PDF is saved and can be retrieved later via `GET /invoices/draft/{id}`.
+
+                **Requirements:**
+                - Draft must have at least a `client` and one `item`
+
+                **What you get:**
+                - A PDF that looks like a real CFDI invoice
+                - UUID shows `PREFACTURA-0000-0000-0000-SINVALIDEZ`
+                - "Sin Validez Fiscal" watermark overlay
+                - Useful for client approval before stamping
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: Draft invoice ID
+            responses:
+                '200':
+                    description: Preview PDF generated successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    message:
+                                        type: string
+                                        example: 'Preview PDF generated'
+                                    data:
+                                        type: object
+                                        properties:
+                                            pdf:
+                                                type: string
+                                                description: Base64-encoded PDF with "Sin Validez Fiscal" watermark
+                '400':
+                    description: Draft is incomplete
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                            examples:
+                                incomplete:
+                                    summary: Missing client or items
+                                    value:
+                                        message: 'Draft needs at least a client and one item to generate preview'
+                '404':
+                    description: Draft not found
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+
+    # =============================================================================
     # PAYMENTS - Organized by HTTP Method (GET → POST → PUT → DELETE)
     # =============================================================================
 
@@ -11146,6 +11964,19 @@ tags:
 
     - name: Invoices
       description: Invoice management with CFDI 4.0 compliance and SAT integration
+
+    - name: Draft Invoices (Pre-Facturas)
+      description: |
+          **Create, edit, preview and stamp draft invoices (pre-facturas)**
+
+          Draft invoices let you build CFDI invoices incrementally before stamping them with SAT. Use them as **pre-facturas** — generate a preview PDF with a "Sin Validez Fiscal" watermark to share with your client for approval, then stamp the draft to create a valid CFDI when ready.
+
+          ## Typical Workflow
+
+          1. `POST /invoices/draft` — Create a draft with minimal data
+          2. `PUT /invoices/draft/{id}` — Update as more data becomes available
+          3. `POST /invoices/draft/{id}/preview` — Generate a preview PDF (pre-factura)
+          4. `POST /invoices/draft/{id}/stamp` — Finalize into a valid CFDI invoice
 
     - name: Payments
       description: Payment processing, tracking, and refund management
