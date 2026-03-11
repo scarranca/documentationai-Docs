@@ -4609,6 +4609,11 @@ components:
                     nullable: true
                     example: 'receipt-key-12345'
                     description: 'Unique key to prevent duplicate receipts. If a receipt with this key already exists, the existing receipt will be returned.'
+                ignore_emails:
+                    type: boolean
+                    nullable: true
+                    example: false
+                    description: 'When set to `true`, suppresses all email and WhatsApp notifications for this receipt. Useful for bulk imports or migrations where notifications are not desired.'
 
         # Shared/Global Schemas
         ApiPublicSearch:
