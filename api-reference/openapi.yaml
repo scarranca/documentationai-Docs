@@ -2796,6 +2796,11 @@ components:
                     nullable: true
                     example: 1677651234000
                     description: 'Unix timestamp (in milliseconds) for when the payment was received. Must be in the past. Defaults to current time if not provided.'
+                ignore_emails:
+                    type: boolean
+                    nullable: true
+                    example: false
+                    description: 'When set to `true`, suppresses all email and WhatsApp notifications for this payment and any automated documents (invoices, receipts) generated from it. Useful for bulk imports or migrations where notifications are not desired.'
                 invoice_config:
                     type: object
                     nullable: true
