@@ -1382,7 +1382,7 @@ components:
                     description: XML addenda to include
                 send_email:
                     type: boolean
-                    description: Send email after stamping
+                    description: 'Whether to send the document via email to the client. Defaults to `true`.'
                 emails:
                     type: array
                     items:
@@ -1499,6 +1499,7 @@ components:
                     nullable: true
                 send_email:
                     type: boolean
+                    description: 'Whether to send the document via email to the client. Defaults to `true`.'
                 emails:
                     type: array
                     items:
@@ -1850,11 +1851,7 @@ components:
                 send_email:
                     type: boolean
                     example: true
-                ignore_emails:
-                    type: boolean
-                    nullable: true
-                    example: false
-                    description: 'When set to `true`, suppresses all email notifications for this invoice. Overrides `send_email`. Useful for bulk imports or migrations.'
+                    description: 'Whether to send the document via email to the client. Defaults to `true`.'
                 emails:
                     type: array
                     items:
@@ -2095,9 +2092,10 @@ components:
                     type: number
                     example: 1640995200
                     description: 'Unix timestamp for invoice date'
-                send_emails:
+                send_email:
                     type: boolean
                     example: true
+                    description: 'Whether to send the document via email to the client. Defaults to `true`.'
                 emails:
                     type: array
                     items:
@@ -2312,12 +2310,7 @@ components:
                     type: boolean
                     nullable: true
                     example: true
-                    description: 'Whether to send invoice via email'
-                ignore_emails:
-                    type: boolean
-                    nullable: true
-                    example: false
-                    description: 'When set to `true`, suppresses all email notifications for this invoice. Overrides `send_email`. Useful for bulk imports or migrations.'
+                    description: 'Whether to send the document via email to the client. Defaults to `true`.'
                 emails:
                     type: array
                     nullable: true
@@ -2808,12 +2801,7 @@ components:
                     type: boolean
                     nullable: true
                     example: true
-                    description: 'Whether to send an email notification to the customer'
-                ignore_emails:
-                    type: boolean
-                    nullable: true
-                    example: false
-                    description: 'When set to `true`, suppresses all email notifications for this payment request and any automated documents generated from it.'
+                    description: 'Whether to send an email notification to the customer. Defaults to `true`.'
                 emails:
                     type: array
                     nullable: true
@@ -3182,11 +3170,16 @@ components:
                     nullable: true
                     example: 1677651234000
                     description: 'Unix timestamp (in milliseconds) for when the payment was received. Must be in the past. Defaults to current time if not provided.'
-                ignore_emails:
+                send_email:
                     type: boolean
                     nullable: true
-                    example: false
-                    description: 'When set to `true`, suppresses all email and WhatsApp notifications for this payment and any automated documents (invoices, receipts) generated from it. Useful for bulk imports or migrations where notifications are not desired.'
+                    example: true
+                    description: 'Whether to send email and WhatsApp notifications for this payment and any automated documents (invoices, receipts). Defaults to `true`.'
+                ppd_invoice_id:
+                    type: string
+                    nullable: true
+                    example: 'invoice_ppd_1234567890'
+                    description: "UUID of an existing PPD invoice to link this payment to. When provided, a payment complement (complemento de pago) will be automatically generated and linked to the PPD invoice. The referenced invoice must have payment_method='PPD' and status='valid'."
                 invoice_config:
                     type: object
                     nullable: true
@@ -3328,6 +3321,11 @@ components:
                 payment_form:
                     $ref: '#/components/schemas/PaymentFormEnum'
                     description: 'SAT payment form code'
+                send_email:
+                    type: boolean
+                    nullable: true
+                    example: true
+                    description: 'Whether to send email notifications for this payment and any automated documents. Defaults to `true`.'
 
         # Invoice Output Schema
         ApiPublicIncomeInvoice:
@@ -4995,11 +4993,11 @@ components:
                     nullable: true
                     example: 'receipt-key-12345'
                     description: 'Unique key to prevent duplicate receipts. If a receipt with this key already exists, the existing receipt will be returned.'
-                ignore_emails:
+                send_email:
                     type: boolean
                     nullable: true
-                    example: false
-                    description: 'When set to `true`, suppresses all email and WhatsApp notifications for this receipt. Useful for bulk imports or migrations where notifications are not desired.'
+                    example: true
+                    description: 'Whether to send email and WhatsApp notifications for this receipt. Defaults to `true`.'
 
         # Shared/Global Schemas
         ApiPublicSearch:
@@ -8384,12 +8382,8 @@ paths:
                                     example: true
                                 send_email:
                                     type: boolean
-                                    description: Send invoice email to client
+                                    description: Whether to send the document via email to the client. Defaults to true.
                                     example: true
-                                ignore_emails:
-                                    type: boolean
-                                    description: Do not send any emails
-                                    example: false
             responses:
                 '200':
                     description: Invoice created from draft
@@ -8822,6 +8816,12 @@ paths:
                 - **`pue_invoice`**: Creates a PUE (Pago en Una sola Exhibición) invoice immediately
                 - **`none`**: No automation, registers payment only
 
+                ## PPD Invoice Linking
+
+                You can link a payment to an existing PPD (Pago en Parcialidades o Diferido) invoice by providing the `ppd_invoice_id` field.
+                When set, a payment complement (complemento de pago) CFDI will be automatically generated and linked to the PPD invoice.
+                The referenced invoice must have `payment_method='PPD'` and `status='valid'`.
+
                 ## Payment Form
 
                 The `payment_form` field specifies the Mexican SAT payment form code:
@@ -8870,6 +8870,21 @@ paths:
                                         connect: 'EMP800101ABC'
                                         master_to: 'client'
                                         connect_to: 'master'
+                            ppd_complement:
+                                summary: 'Payment linked to an existing PPD invoice'
+                                description: 'Register a payment and automatically generate a payment complement (complemento de pago) linked to an existing PPD invoice'
+                                value:
+                                    client:
+                                        id: 'client_1234567890'
+                                    automation_type: 'none'
+                                    currency: 'MXN'
+                                    exchange_rate: 1.0
+                                    payment_form: '03'
+                                    ppd_invoice_id: 'invoice_ppd_1234567890'
+                                    items:
+                                        - id: 'service_1234567890'
+                                          quantity: 1
+                                          unit_price: 1000.00
                             fixed_commission:
                                 summary: 'Payment with fixed commission fee'
                                 description: 'Use custom_price to charge a fixed commission instead of percentage'
