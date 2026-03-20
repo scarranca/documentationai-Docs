@@ -10746,9 +10746,18 @@ paths:
                                         - viewer
                                     default: viewer
                                     example: 'editor'
+                                ghost:
+                                    type: boolean
+                                    description: |
+                                        When true, the member is hidden from the team members list in the dashboard.
+                                        Ghost members have full access based on their role but are invisible to other team members.
+                                        Useful for platform partners that need persistent, hidden access to managed teams.
+                                    default: false
+                                    example: true
                         example:
                             id: 'user123abc'
                             role: 'editor'
+                            ghost: true
             responses:
                 '200':
                     description: Team member added successfully
