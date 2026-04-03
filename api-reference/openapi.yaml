@@ -474,6 +474,89 @@ components:
                 default: 1
 
     schemas:
+        SatInvoice:
+            type: object
+            description: An invoice downloaded from SAT via Descarga Masiva
+            properties:
+                id:
+                    type: string
+                    description: Document ID (same as UUID)
+                uuid:
+                    type: string
+                    description: SAT UUID (globally unique CFDI identifier)
+                    example: 6741A863-04BE-49FE-BB76-E1657AB6B7EA
+                direction:
+                    type: string
+                    enum: [issued, received]
+                    description: Whether this RFC issued or received the invoice
+                issuer:
+                    type: object
+                    properties:
+                        rfc:
+                            type: string
+                        name:
+                            type: string
+                receiver:
+                    type: object
+                    properties:
+                        rfc:
+                            type: string
+                        name:
+                            type: string
+                invoice_type:
+                    type: string
+                    enum: [I, E, P, N, T]
+                    description: CFDI type (I=Income, E=Egress, P=Payment, N=Nomina, T=Transfer)
+                series:
+                    type: string
+                    nullable: true
+                folio:
+                    type: string
+                    nullable: true
+                subtotal:
+                    type: number
+                total:
+                    type: number
+                currency:
+                    type: string
+                    example: MXN
+                exchange_rate:
+                    type: number
+                    nullable: true
+                issue_date:
+                    type: string
+                    description: Issue date (YYYY-MM-DD or datetime from SAT)
+                stamp_date:
+                    type: string
+                    description: Timestamp when PAC stamped the CFDI
+                cancellation_date:
+                    type: string
+                    nullable: true
+                status:
+                    type: string
+                    enum: [Vigente, Cancelado]
+                pac_rfc:
+                    type: string
+                    description: RFC of the PAC that stamped the invoice
+                version:
+                    type: string
+                    example: '4.0'
+                certificate_number:
+                    type: string
+                download_request_id:
+                    type: string
+                    nullable: true
+                    description: ID of the satreq_ document that downloaded this invoice
+                has_xml:
+                    type: boolean
+                    description: Whether the XML has been downloaded and stored
+                created_at:
+                    type: integer
+                    description: Unix timestamp (ms) when first downloaded
+                updated_at:
+                    type: integer
+                    description: Unix timestamp (ms) of last update
+
         OrderDirection:
             type: string
             enum: [asc, desc]
@@ -6974,6 +7057,136 @@ paths:
     # INVOICES - Organized by HTTP Method (GET → POST → PUT → DELETE)
     # =============================================================================
 
+    /invoices/sat:
+        get:
+            tags:
+                - Invoices
+                - Descarga Masiva
+            summary: List SAT invoices
+            description: |
+                Returns invoices downloaded from SAT via Descarga Masiva. Supports filtering by direction,
+                status, invoice type, RFC, and date range. Uses cursor-based pagination.
+
+                Requires Descarga Masiva to be activated and at least one download request to have completed.
+            operationId: listSatInvoices
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: direction
+                  in: query
+                  description: Filter by invoice direction
+                  schema:
+                      type: string
+                      enum: [issued, received]
+                - name: status
+                  in: query
+                  description: Filter by SAT invoice status
+                  schema:
+                      type: string
+                      enum: [Vigente, Cancelado]
+                - name: invoice_type
+                  in: query
+                  description: Filter by CFDI type code
+                  schema:
+                      type: string
+                      enum: [I, E, P, N, T]
+                - name: issuer_rfc
+                  in: query
+                  description: Filter by issuer RFC
+                  schema:
+                      type: string
+                - name: receiver_rfc
+                  in: query
+                  description: Filter by receiver RFC
+                  schema:
+                      type: string
+                - name: from
+                  in: query
+                  description: Issue date from (inclusive), format YYYY-MM-DD
+                  schema:
+                      type: string
+                      format: date
+                - name: to
+                  in: query
+                  description: Issue date to (inclusive), format YYYY-MM-DD
+                  schema:
+                      type: string
+                      format: date
+                - name: limit
+                  in: query
+                  description: Number of results per page (1–100, default 20)
+                  schema:
+                      type: integer
+                      minimum: 1
+                      maximum: 100
+                      default: 20
+                - name: starting_after
+                  in: query
+                  description: UUID of the last invoice from the previous page (cursor pagination)
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: List of SAT invoices
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: array
+                                        items:
+                                            $ref: '#/components/schemas/SatInvoice'
+                                    has_more:
+                                        type: boolean
+                                    next:
+                                        type: string
+                                        nullable: true
+                                        description: UUID to pass as starting_after for the next page
+                                    count:
+                                        type: integer
+                '401':
+                    description: Unauthorized
+                '500':
+                    description: Internal server error
+
+    /invoices/sat/{uuid}:
+        get:
+            tags:
+                - Invoices
+                - Descarga Masiva
+            summary: Get a SAT invoice
+            description: Returns a single invoice downloaded from SAT by its UUID.
+            operationId: getSatInvoice
+            security:
+                - BearerAuth: []
+            parameters:
+                - name: uuid
+                  in: path
+                  required: true
+                  description: The SAT invoice UUID
+                  schema:
+                      type: string
+            responses:
+                '200':
+                    description: SAT invoice
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    data:
+                                        $ref: '#/components/schemas/SatInvoice'
+                '404':
+                    description: Invoice not found
+                '401':
+                    description: Unauthorized
+
     /invoices/errors:
         get:
             tags:
@@ -8653,6 +8866,987 @@ paths:
                                 $ref: '#/components/schemas/UnauthorizedError'
                 '500':
                     description: Internal server error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    # ─── Descarga Masiva SAT ─────────────────────────────────────────────────────
+
+    /invoices/download/activate/status:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Check activation status
+            description: |
+                Check whether Descarga Masiva SAT is activated for your team and what action (if any) is required.
+
+                **Possible statuses:**
+                - `active` — Already activated, FIEL setup and scheduling are available
+                - `needs_activation` — Your plan includes the feature; call `POST /invoices/download/activate` to turn it on (no extra charge)
+                - `needs_addon` — Your plan doesn't include the feature; activating adds $400 MXN/RFC/month + $0.20/XML to your subscription
+                - `needs_upgrade` — Free plan; upgrade first at `/memberships`
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Activation status retrieved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: object
+                                        properties:
+                                            status:
+                                                type: string
+                                                enum: [active, needs_activation, needs_addon, needs_upgrade]
+                                                example: needs_activation
+                                            planIncludesFeature:
+                                                type: boolean
+                                                example: true
+                                            isActivated:
+                                                type: boolean
+                                                example: false
+                                            pricing:
+                                                type: object
+                                                properties:
+                                                    perDownload:
+                                                        type: string
+                                                        example: '$0.20 MXN'
+                                                    addonMonthly:
+                                                        type: string
+                                                        nullable: true
+                                                        example: null
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/activate:
+        post:
+            tags:
+                - Descarga Masiva SAT
+            summary: Activate Descarga Masiva SAT
+            description: |
+                Activate Descarga Masiva SAT for your team. Billing is adjusted automatically based on your plan:
+
+                - **Plan includes feature** (`needs_activation` status): Activation is free — you only pay $0.20 MXN per XML downloaded.
+                - **Plan without feature** (`needs_addon` status): Adds $400 MXN/RFC/month to your subscription plus $0.20 MXN per XML. Charges are prorated to today.
+
+                Once activated, upload your FIEL via `POST /invoices/download/fiel` to complete setup.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Activated successfully (or already active)
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                                        example: 'Descarga Masiva activada. Cada descarga de XML consumirá créditos SAT.'
+                                    data:
+                                        type: object
+                                        properties:
+                                            type:
+                                                type: string
+                                                enum: [included, addon]
+                                                example: included
+                                            activated:
+                                                type: boolean
+                                                example: true
+                                            alreadyActive:
+                                                type: boolean
+                                                description: Present and true when the feature was already active
+                '400':
+                    description: Bad Request — no active subscription or free plan
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                '403':
+                    description: Forbidden — free plan cannot purchase add-on
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/deactivate:
+        post:
+            tags:
+                - Descarga Masiva SAT
+            summary: Deactivate Descarga Masiva SAT
+            description: |
+                Deactivate Descarga Masiva SAT for your team. Scheduled downloads stop immediately. If the feature was billed as an add-on, the charge is removed from your subscription (prorated). Any remaining XML downloads in the current period are still billed at period end.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Deactivated successfully (or already inactive)
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                                        example: 'Descarga Masiva desactivada.'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/fiel:
+        post:
+            tags:
+                - Descarga Masiva SAT
+            summary: Upload FIEL credentials
+            description: |
+                Upload your FIEL (Firma Electrónica Avanzada) credentials to enable SAT bulk downloads.
+
+                **This is the main setup endpoint.** It accepts your `.cer` and `.key` files, validates them, and — if `sync_start_date` and `phone` are provided — automatically registers your business with the SAT in the same request. No separate `/register` call needed.
+
+                **What it does:**
+                1. Validates the certificate format, extracts your RFC, and checks it matches your gigstack team RFC
+                2. Verifies the certificate is not expired
+                3. Securely encrypts and stores your credentials
+                4. If `sync_start_date` + `phone` are provided → registers your business with the SAT immediately and enables sync (`registered: true` in the response)
+
+                **Request format:** `multipart/form-data`
+
+                | Field | Type | Required | Description |
+                |-------|------|----------|-------------|
+                | `cert` | file | Yes | `.cer` file (DER-encoded certificate from SAT) |
+                | `key` | file | Yes | `.key` file (DER-encoded encrypted private key from SAT) |
+                | `password` | string | Yes | Password for the `.key` file |
+                | `sync_start_date` | string | Recommended | Start date for SAT sync (`YYYY-MM-DD`, up to 71 months back) |
+                | `phone` | string | Recommended | Contact phone in international format (e.g. `+5215512345678`) |
+
+                > **Note:** The FIEL is different from the CSD (Certificado de Sello Digital). The CSD is used to stamp CFDI invoices. The FIEL is used to authenticate with the SAT for bulk downloads.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    multipart/form-data:
+                        schema:
+                            type: object
+                            required:
+                                - cert
+                                - key
+                                - password
+                            properties:
+                                cert:
+                                    type: string
+                                    format: binary
+                                    description: '.cer file — DER-encoded certificate from SAT'
+                                key:
+                                    type: string
+                                    format: binary
+                                    description: '.key file — DER-encoded encrypted private key from SAT'
+                                password:
+                                    type: string
+                                    description: 'Password for the .key file'
+                                sync_start_date:
+                                    type: string
+                                    format: date
+                                    description: 'Start date for historical SAT sync (YYYY-MM-DD, up to 71 months back)'
+                                    example: '2023-01-01'
+                                phone:
+                                    type: string
+                                    description: 'Contact phone in international format'
+                                    example: '+5215512345678'
+            responses:
+                '200':
+                    description: FIEL uploaded (and optionally registered) successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                                        example: 'FIEL credentials stored successfully. Business registered with SAT sync enabled.'
+                                    data:
+                                        type: object
+                                        properties:
+                                            rfc:
+                                                type: string
+                                                example: 'XAXX010101000'
+                                            expires_at:
+                                                type: integer
+                                                description: 'Certificate expiry timestamp (ms)'
+                                                example: 1893456000000
+                                            expires_at_readable:
+                                                type: string
+                                                example: '2029-12-31T00:00:00.000Z'
+                                            serial_number:
+                                                type: string
+                                                example: '00001000000504465028'
+                                            sync_start_date:
+                                                type: string
+                                                nullable: true
+                                                example: '2023-01-01'
+                                            phone:
+                                                type: string
+                                                nullable: true
+                                                example: '+5215512345678'
+                                            registered:
+                                                type: boolean
+                                                description: 'true if auto-registration with SAT succeeded'
+                                                example: true
+                                            registered_at:
+                                                type: integer
+                                                nullable: true
+                                                description: 'Registration timestamp (ms), null if not yet registered'
+                '400':
+                    description: Bad Request — missing files, RFC mismatch, expired certificate, invalid format
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/register:
+        post:
+            tags:
+                - Descarga Masiva SAT
+            summary: Register business with SAT (manual)
+            description: |
+                Manually register your business with the SAT. Only needed if the automatic registration during `POST /invoices/download/fiel` failed.
+
+                **In most cases you don't need to call this directly** — `POST /invoices/download/fiel` handles registration automatically when `sync_start_date` and `phone` are provided.
+
+                Requires that FIEL credentials were already uploaded via `POST /invoices/download/fiel`.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - sync_start_date
+                                - phone
+                            properties:
+                                sync_start_date:
+                                    type: string
+                                    format: date
+                                    description: 'Start date for SAT sync (YYYY-MM-DD, max 71 months back)'
+                                    example: '2023-01-01'
+                                phone:
+                                    type: string
+                                    description: 'Contact phone in international format (+52...)'
+                                    example: '+5215512345678'
+                                legal_name:
+                                    type: string
+                                    description: 'Business legal name (defaults to team legal name)'
+                                max_monthly_invoices:
+                                    type: integer
+                                    description: 'Maximum monthly invoices limit (default: 10000)'
+                                    default: 10000
+            responses:
+                '200':
+                    description: Business registered successfully
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                '400':
+                    description: Bad Request — FIEL not uploaded or missing fields
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/schedule:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Get schedule configuration
+            description: |
+                Returns the current scheduled download configuration plus FIEL and registration status. Use this to check setup progress before configuring a schedule or submitting download requests.
+
+                - `fiel_uploaded: true` — FIEL credentials are stored
+                - `registered: true` — Business is registered with the SAT, downloads are enabled
+                - `schedule` — Current schedule config, or `null` if not configured yet
+                - `fiel` — FIEL certificate metadata (RFC, expiry, serial number)
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Schedule configuration retrieved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: object
+                                        properties:
+                                            fiel_uploaded:
+                                                type: boolean
+                                                example: true
+                                            registered:
+                                                type: boolean
+                                                example: true
+                                            registered_at:
+                                                type: integer
+                                                nullable: true
+                                                description: 'Registration timestamp (ms)'
+                                            sat_completed:
+                                                type: boolean
+                                                description: 'Whether the team has SAT invoicing (CSD) configured'
+                                            fiel:
+                                                type: object
+                                                nullable: true
+                                                properties:
+                                                    rfc:
+                                                        type: string
+                                                        example: 'XAXX010101000'
+                                                    expires_at:
+                                                        type: integer
+                                                        example: 1893456000000
+                                                    serial_number:
+                                                        type: string
+                                                    uploaded_at:
+                                                        type: integer
+                                            schedule:
+                                                type: object
+                                                nullable: true
+                                                properties:
+                                                    enabled:
+                                                        type: boolean
+                                                    time:
+                                                        type: string
+                                                        example: '21:00'
+                                                    downloadTypes:
+                                                        type: array
+                                                        items:
+                                                            type: string
+                                                            enum: [issued, received]
+                                                    daysBack:
+                                                        type: integer
+                                                        example: 1
+                                                    lastRunAt:
+                                                        type: integer
+                                                        nullable: true
+                                                    lastRunStatus:
+                                                        type: string
+                                                        nullable: true
+                                                    lastRunError:
+                                                        type: string
+                                                        nullable: true
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+        put:
+            tags:
+                - Descarga Masiva SAT
+            summary: Save schedule configuration
+            description: |
+                Create or update the daily scheduled download. The schedule runs once per day at the specified time (America/Mexico_City timezone) and downloads invoices from the last `days_back` days.
+
+                **Prerequisites:** FIEL must be uploaded and business must be registered. Returns `400` otherwise.
+
+                **Warning:** If you include `issued` in `download_types` and your team already has SAT invoicing (CSD) configured, the response includes a `warning` field noting that issued invoices already exist in the system.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - enabled
+                                - time
+                                - download_types
+                                - days_back
+                            properties:
+                                enabled:
+                                    type: boolean
+                                    description: 'Enable or disable scheduled downloads'
+                                time:
+                                    type: string
+                                    description: 'Run time in HH:mm format (America/Mexico_City timezone)'
+                                    example: '21:00'
+                                download_types:
+                                    type: array
+                                    items:
+                                        type: string
+                                        enum: [issued, received]
+                                    description: 'Which invoice directions to download'
+                                    example: [received]
+                                days_back:
+                                    type: integer
+                                    minimum: 1
+                                    maximum: 90
+                                    description: 'How many days back to look on each run'
+                                    example: 1
+                        example:
+                            enabled: true
+                            time: '21:00'
+                            download_types: [received]
+                            days_back: 1
+            responses:
+                '200':
+                    description: Schedule saved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    message:
+                                        type: string
+                                        example: 'Scheduled download enabled successfully'
+                                    warning:
+                                        type: string
+                                        description: 'Optional warning if issued invoices may be duplicated'
+                                    data:
+                                        type: object
+                                        properties:
+                                            schedule:
+                                                type: object
+                '400':
+                    description: Bad Request — FIEL not uploaded, not registered, invalid time/types/days_back
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidationErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/schedule/history:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Get download request history
+            description: |
+                Returns the last 20 download requests for your team, ordered by most recent first.
+
+                **Live status check:** Any pending requests (`accepted`, `processing`, `pending`) are checked against the SAT in real time before the response is returned, so you always get up-to-date statuses in a single call.
+
+                **Statuses:**
+                | Status | Meaning |
+                |--------|---------|
+                | `pending` | Request queued, being sent to SAT |
+                | `accepted` | SAT accepted the request, processing started |
+                | `processing` | SAT is generating the package |
+                | `completed` | Done — invoice metadata is available in the response |
+                | `failed` | SAT rejected the request (see `statusMessage`) |
+                | `expired` | Package expired before it was downloaded |
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: History retrieved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: object
+                                        properties:
+                                            history:
+                                                type: array
+                                                items:
+                                                    type: object
+                                                    properties:
+                                                        id:
+                                                            type: string
+                                                        rfcType:
+                                                            type: string
+                                                            enum: [issued, received]
+                                                        startDate:
+                                                            type: string
+                                                            format: date
+                                                        endDate:
+                                                            type: string
+                                                            format: date
+                                                        status:
+                                                            type: string
+                                                            enum: [pending, accepted, processing, completed, failed, expired]
+                                                        invoiceCount:
+                                                            type: integer
+                                                            description: 'Total invoices found by SAT'
+                                                        processedCount:
+                                                            type: integer
+                                                            description: 'Invoices saved to sat_invoices'
+                                                        statusMessage:
+                                                            type: string
+                                                            nullable: true
+                                                        source:
+                                                            type: string
+                                                            enum: [manual, scheduled]
+                                                        owner:
+                                                            type: string
+                                                            nullable: true
+                                                        latestIssueDate:
+                                                            type: string
+                                                            nullable: true
+                                                        earliestIssueDate:
+                                                            type: string
+                                                            nullable: true
+                                                        createdAt:
+                                                            type: integer
+                                                        completedAt:
+                                                            type: integer
+                                                            nullable: true
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/request:
+        post:
+            tags:
+                - Descarga Masiva SAT
+            summary: Create bulk download request
+            description: |
+                Submit a bulk download request to the SAT. The SAT processes these asynchronously — use `GET /invoices/download/schedule/history` to poll for status updates.
+
+                **Prerequisites:** FIEL uploaded (`fiel_uploaded: true`) + business registered (`registered: true`) + Descarga Masiva activated.
+
+                **Date range:** SAT limits each request to a maximum of 1 month. For longer periods, submit one request per month.
+
+                Once the request reaches `completed` status, the invoice metadata is available in the history response (`invoiceCount`, `processedCount`, `latestIssueDate`, `earliestIssueDate`).
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            type: object
+                            required:
+                                - start_date
+                                - end_date
+                            properties:
+                                start_date:
+                                    type: string
+                                    format: date
+                                    description: 'Start of date range (YYYY-MM-DD)'
+                                    example: '2024-01-01'
+                                end_date:
+                                    type: string
+                                    format: date
+                                    description: 'End of date range (YYYY-MM-DD)'
+                                    example: '2024-01-31'
+                                rfc_type:
+                                    type: string
+                                    enum: [issued, received]
+                                    description: 'Direction of invoices to download (default: received)'
+                                    default: received
+                                request_type:
+                                    type: string
+                                    enum: [cfdi, metadata]
+                                    description: 'Download XML files (cfdi) or metadata only (default: cfdi)'
+                                    default: cfdi
+                                invoice_type:
+                                    type: string
+                                    enum: [I, E, P, N, T]
+                                    description: 'Filter by CFDI type: I=income, E=expense, P=payment, N=payroll, T=transfer'
+                                invoice_status:
+                                    type: string
+                                    enum: [active, cancelled, all]
+                                    description: 'Filter by invoice status (default: all)'
+                                third_party_rfc:
+                                    type: string
+                                    description: 'Filter by counterparty RFC'
+                                min_amount:
+                                    type: string
+                                    description: 'Minimum invoice amount'
+                                max_amount:
+                                    type: string
+                                    description: 'Maximum invoice amount'
+                        example:
+                            start_date: '2024-01-01'
+                            end_date: '2024-01-31'
+                            rfc_type: received
+            responses:
+                '200':
+                    description: Request submitted (or duplicate detected)
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                        example: true
+                                    data:
+                                        type: object
+                                        properties:
+                                            request_id:
+                                                type: string
+                                                description: 'Internal gigstack request ID'
+                                            duplicate:
+                                                type: boolean
+                                                description: 'true if an identical request already exists'
+                                            status:
+                                                type: string
+                                                example: pending
+                '400':
+                    description: Bad Request — FIEL not uploaded, not registered, or billing not activated
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/status/{request_id}:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Check download request status
+            description: |
+                Check the current SAT processing status of a specific download request.
+
+                Returns the same status values as the history endpoint. When `status` is `completed`, the response includes `package_ids` which can be used with `GET /invoices/download/package/{package_id}` to retrieve the XML files.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: request_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: 'Request ID returned from POST /invoices/download/request'
+            responses:
+                '200':
+                    description: Status retrieved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    data:
+                                        type: object
+                                        properties:
+                                            status:
+                                                type: string
+                                                enum: [pending, accepted, processing, completed, failed, expired]
+                                            invoiceCount:
+                                                type: integer
+                                            package_ids:
+                                                type: array
+                                                items:
+                                                    type: string
+                                                description: 'Available when status is completed'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/package/{package_id}:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Download XML package
+            description: |
+                Download a ZIP package containing the XML files for a completed download request.
+
+                Package IDs come from `GET /invoices/download/status/{request_id}` once the request reaches `completed` status.
+
+                Returns the binary ZIP file. Packages expire after a period set by the SAT — download promptly once available.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: package_id
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: 'Package ID from the status response'
+            responses:
+                '200':
+                    description: ZIP package binary
+                    content:
+                        application/zip:
+                            schema:
+                                type: string
+                                format: binary
+                '400':
+                    description: Bad Request
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ErrorResponse'
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/invoice/{uuid}:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Get single invoice from SAT
+            description: |
+                Fetch a single invoice's XML from the SAT by UUID. Useful for retrieving a specific CFDI without submitting a full bulk download request.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+                - name: uuid
+                  in: path
+                  required: true
+                  schema:
+                      type: string
+                  description: 'CFDI UUID (folio fiscal)'
+            responses:
+                '200':
+                    description: Invoice retrieved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    data:
+                                        type: object
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/debug:
+        get:
+            tags:
+                - Descarga Masiva SAT
+            summary: Debug registration status
+            description: |
+                Returns detailed debug information about your team's Descarga Masiva setup: FIEL status, registration status, schedule config, and SAT connectivity. Intended for troubleshooting.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: Debug info retrieved
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    data:
+                                        type: object
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/InternalServerError'
+
+    /invoices/download/enable-sync:
+        post:
+            tags:
+                - Descarga Masiva SAT
+            summary: Enable SAT sync
+            description: |
+                Enables automatic SAT synchronization for your team. This is a lower-level toggle — in most flows the schedule configuration (`PUT /invoices/download/schedule`) is the right endpoint to use.
+            security:
+                - apiKey: []
+            parameters:
+                - $ref: '#/components/parameters/TeamParameter'
+            responses:
+                '200':
+                    description: SAT sync enabled
+                    content:
+                        application/json:
+                            schema:
+                                type: object
+                                properties:
+                                    success:
+                                        type: boolean
+                                    message:
+                                        type: string
+                '401':
+                    description: Unauthorized
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/UnauthorizedError'
+                '500':
+                    description: Internal Server Error
                     content:
                         application/json:
                             schema:
@@ -12002,6 +13196,23 @@ tags:
           3. `POST /invoices/draft/{id}/preview` — Generate a preview PDF (pre-factura)
           4. `POST /invoices/draft/{id}/stamp` — Finalize into a valid CFDI invoice
 
+    - name: Descarga Masiva SAT
+      description: |
+          **SAT bulk invoice download via FIEL authentication**
+
+          Download all your issued and received CFDI invoices directly from the SAT (Servicio de Administración Tributaria) using your FIEL (Firma Electrónica Avanzada).
+
+          ## Setup flow
+          1. `GET /invoices/download/activate/status` — Check if activated and what's needed
+          2. `POST /invoices/download/activate` — Activate billing (adds Stripe meter/add-on)
+          3. `POST /invoices/download/fiel` — Upload `.cer` + `.key` files (auto-registers with SAT)
+          4. `PUT /invoices/download/schedule` — Configure daily auto-sync
+          5. `POST /invoices/download/request` — Submit manual download requests
+
+          ## Pricing
+          - Included in Pro/Business plans: only the download meter ($0.20 MXN/XML)
+          - Add-on for other paid plans: $400 MXN/RFC/month + $0.20 MXN/XML
+
     - name: Payments
       description: Payment processing, tracking, and refund management
 
@@ -12022,4 +13233,4 @@ tags:
 
 # Apidog-specific extensions
 x-apidog-folder: 'Gigstack API v2'
-x-apidog-orders: ['gigstack Connect', 'Clients', 'Services', 'Invoices', 'Payments', 'Receipts', 'Retentions', 'Teams', 'Users', 'Webhooks']
+x-apidog-orders: ['gigstack Connect', 'Clients', 'Services', 'Invoices', 'Draft Invoices (Pre-Facturas)', 'Descarga Masiva SAT', 'Payments', 'Receipts', 'Retentions', 'Teams', 'Users', 'Webhooks']
